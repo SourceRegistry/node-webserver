@@ -124,7 +124,7 @@ class PathRegexCache {
     }
 }
 
-export class Router<Locals extends Record<string, any> = {}> {
+export class Router<Locals extends App.Locals = App.Locals> {
     private _routes: Route<any>[] = [];
     private _wsRoutes: WebSocketRoute<any>[] = [];
     private _nestedRouters: NestedRouter[] = [];

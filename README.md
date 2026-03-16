@@ -120,6 +120,36 @@ app.GET("/message", () => text("plain text"));
 app.GET("/data", () => json({ ok: true }));
 ```
 
+It also exports `redirect()` and `error()` for control flow. These helpers throw a `Response`, and the router immediately returns that response without continuing route resolution. This works in normal routes, middleware, lifecycle hooks, and nested routers.
+
+```ts
+import { error, redirect } from "@sourceregistry/node-webserver";
+
+app.GET("/old", () => {
+  redirect(302, "/new");
+});
+
+app.GET("/admin", (event) => {
+  if (!event.locals.userId) {
+    error(401, { message: "Unauthorized" });
+  }
+
+  return new Response("secret");
+});
+```
+
+Nested routers short-circuit the same way:
+
+```ts
+const api = new Router();
+
+api.GET("/legacy", () => {
+  redirect(301, "/api/v2");
+});
+
+app.use("/api", api);
+```
+
 ## Request Handling
 
 Route handlers receive a web-standard `Request` plus extra routing data:

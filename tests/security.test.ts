@@ -36,7 +36,7 @@ describe("server hardening", () => {
 
     it("does not trust Host by default when building event URLs", async () => {
         const server = new WebServer();
-        server.router.GET("/", (event) => new Response(event.url.host));
+        server.GET("/", (event) => new Response(event.url.host));
 
         const port = await startServer(server);
         const body = await new Promise<string>((resolve, reject) => {
@@ -65,7 +65,7 @@ describe("server hardening", () => {
 
     it("serves HEAD through GET handlers without writing the body", async () => {
         const server = new WebServer();
-        server.router.GET("/", () => new Response("secret-body", {
+        server.GET("/", () => new Response("secret-body", {
             headers: {
                 "content-length": "11"
             }
@@ -86,7 +86,7 @@ describe("server hardening", () => {
                 maxRequestBodySize: 4
             }
         });
-        server.router.POST("/", async (event) => new Response(await event.request.text()));
+        server.POST("/", async (event) => new Response(await event.request.text()));
 
         const port = await startServer(server);
         const response = await fetch(`http://127.0.0.1:${port}/`, {
@@ -105,7 +105,7 @@ describe("server hardening", () => {
                 maxRequestBodySize: 4
             }
         });
-        server.router.POST("/", async (event) => new Response(await event.request.text()));
+        server.POST("/", async (event) => new Response(await event.request.text()));
 
         const port = await startServer(server);
         const status = await new Promise<number>((resolve, reject) => {
@@ -146,7 +146,7 @@ describe("server hardening", () => {
                 allowedWebSocketOrigins: "https://allowed.example"
             }
         });
-        server.router.WS("/ws", async () => undefined);
+        server.WS("/ws", async () => undefined);
 
         const port = await startServer(server);
 
@@ -190,7 +190,7 @@ describe("router lifecycle hooks", () => {
         const events: string[] = [];
         const server = new WebServer();
 
-        server.router
+        server
             .pre(async () => {
                 events.push("pre");
             })
@@ -199,7 +199,7 @@ describe("router lifecycle hooks", () => {
                 return new Response(await response.text() + "-post");
             });
 
-        server.router.GET("/", () => {
+        server.GET("/", () => {
             events.push("route");
             return new Response("ok");
         });
@@ -215,7 +215,7 @@ describe("router lifecycle hooks", () => {
         const events: string[] = [];
         const server = new WebServer();
 
-        server.router
+        server
             .pre(async () => {
                 events.push("pre");
                 return new Response("blocked", {status: 403});
@@ -224,7 +224,7 @@ describe("router lifecycle hooks", () => {
                 events.push("post");
             });
 
-        server.router.GET("/", () => {
+        server.GET("/", () => {
             events.push("route");
             return new Response("ok");
         });
@@ -245,11 +245,11 @@ describe("request event behavior", () => {
             locals: () => ({ count: 0 })
         });
 
-        server.router.useMiddleware(async (event, next) => {
+        server.useMiddleware(async (event, next) => {
             event.locals.count += 1;
             return next();
         });
-        server.router.GET("/", (event) => new Response(String(event.locals.count)));
+        server.GET("/", (event) => new Response(String(event.locals.count)));
 
         const port = await startServer(server);
         const response = await fetch(`http://127.0.0.1:${port}/`);
@@ -259,12 +259,12 @@ describe("request event behavior", () => {
 
     it("rejects duplicate and forbidden response headers", async () => {
         const server = new WebServer();
-        server.router.GET("/duplicate", (event) => {
+        server.GET("/duplicate", (event) => {
             event.setHeaders({ "Cache-Control": "no-store" });
             expect(() => event.setHeaders({ "cache-control": "max-age=60" })).toThrow(/already been set/i);
             return new Response("ok");
         });
-        server.router.GET("/cookie", (event) => {
+        server.GET("/cookie", (event) => {
             expect(() => event.setHeaders({ "set-cookie": "a=b" })).toThrow(/event.cookies/i);
             return new Response("ok");
         });
@@ -292,7 +292,7 @@ describe("nested routers", () => {
             }
         }));
 
-        server.router.use("/api", nested);
+        server.use("/api", nested);
 
         const port = await startServer(server);
         const response = await fetch(`http://127.0.0.1:${port}/api/users/42`);
@@ -312,7 +312,7 @@ describe("nested routers", () => {
             id: event.params.id
         }));
 
-        server.router.use("/api", nested);
+        server.use("/api", nested);
 
         const port = await startServer(server);
         const response = await fetch(`http://127.0.0.1:${port}/api/users/42`, {
@@ -333,7 +333,7 @@ describe("nested routers", () => {
 describe("cors middleware", () => {
     it("answers valid preflight requests directly", async () => {
         const server = new WebServer();
-        server.router.useMiddleware(CORS.policy({
+        server.useMiddleware(CORS.policy({
             origin: "https://app.example.com",
             credentials: true,
             methods: ["GET", "POST"]

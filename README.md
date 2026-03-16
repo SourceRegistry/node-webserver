@@ -31,9 +31,9 @@ import { WebServer, json, text } from "@sourceregistry/node-webserver";
 
 const app = new WebServer();
 
-app.router.GET("/", () => text("hello world"));
+app.GET("/", () => text("hello world"));
 
-app.router.GET("/health", () => json({
+app.GET("/health", () => json({
   ok: true
 }));
 
@@ -52,6 +52,8 @@ import { WebServer } from "@sourceregistry/node-webserver";
 const app = new WebServer();
 ```
 
+`WebServer` extends `Router`, so you can register routes and middleware directly on `app`.
+
 You can also pass handler callbacks for `locals` and `platform`:
 
 ```ts
@@ -69,15 +71,15 @@ const app = new WebServer({
 ### Register routes
 
 ```ts
-app.router.GET("/users", async () => {
+app.GET("/users", async () => {
   return new Response("all users");
 });
 
-app.router.GET("/users/[id]", async (event) => {
+app.GET("/users/[id]", async (event) => {
   return new Response(`user ${event.params.id}`);
 });
 
-app.router.POST("/users", async (event) => {
+app.POST("/users", async (event) => {
   const body = await event.request.json();
   return json({ created: true, body }, { status: 201 });
 });
@@ -103,7 +105,7 @@ const api = new Router();
 
 api.GET("/status", () => new Response("ok"));
 
-app.router.use("/api", api);
+app.use("/api", api);
 ```
 
 ### Response helpers
@@ -113,9 +115,9 @@ The library exports helpers for common content types:
 ```ts
 import { html, json, text } from "@sourceregistry/node-webserver";
 
-app.router.GET("/", () => html("<h1>Hello</h1>"));
-app.router.GET("/message", () => text("plain text"));
-app.router.GET("/data", () => json({ ok: true }));
+app.GET("/", () => html("<h1>Hello</h1>"));
+app.GET("/message", () => text("plain text"));
+app.GET("/data", () => json({ ok: true }));
 ```
 
 ## Request Handling
@@ -123,7 +125,7 @@ app.router.GET("/data", () => json({ ok: true }));
 Route handlers receive a web-standard `Request` plus extra routing data:
 
 ```ts
-app.router.GET("/posts/[slug]", async (event) => {
+app.GET("/posts/[slug]", async (event) => {
   const userAgent = event.request.headers.get("user-agent");
   const slug = event.params.slug;
   const ip = event.getClientAddress();
@@ -179,7 +181,7 @@ The server will use those `App.Locals` and `App.Platform` definitions automatica
 Middleware wraps request handling and can short-circuit the chain.
 
 ```ts
-app.router.useMiddleware(async (event, next) => {
+app.useMiddleware(async (event, next) => {
   const startedAt = Date.now();
   const response = await next();
 
@@ -204,7 +206,7 @@ const requireApiKey = async (event, next) => {
   return next();
 };
 
-app.router.GET("/admin", () => new Response("secret"), requireApiKey);
+app.GET("/admin", () => new Response("secret"), requireApiKey);
 ```
 
 ## Router Lifecycle Hooks
@@ -216,7 +218,7 @@ Use `pre()` for logic that should run before route resolution, and `post()` for 
 `pre()` can short-circuit the request by returning a `Response`.
 
 ```ts
-app.router.pre(async (event) => {
+app.pre(async (event) => {
   if (!event.request.headers.get("authorization")) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -228,7 +230,7 @@ app.router.pre(async (event) => {
 `post()` receives the final response and may replace it.
 
 ```ts
-app.router.post(async (_event, response) => {
+app.post(async (_event, response) => {
   const nextResponse = new Response(response.body, response);
   nextResponse.headers.set("x-powered-by", "node-webserver");
   return nextResponse;
@@ -238,7 +240,7 @@ app.router.post(async (_event, response) => {
 ## Cookies
 
 ```ts
-app.router.GET("/login", async (event) => {
+app.GET("/login", async (event) => {
   event.cookies.set("session", "abc123", {
     path: "/",
     httpOnly: true,
@@ -249,12 +251,12 @@ app.router.GET("/login", async (event) => {
   return new Response("logged in");
 });
 
-app.router.GET("/me", async (event) => {
+app.GET("/me", async (event) => {
   const session = event.cookies.get("session");
   return json({ session });
 });
 
-app.router.POST("/logout", async (event) => {
+app.POST("/logout", async (event) => {
   event.cookies.delete("session", {
     path: "/",
     httpOnly: true,
@@ -268,7 +270,7 @@ app.router.POST("/logout", async (event) => {
 ## WebSocket Routes
 
 ```ts
-app.router.WS("/ws/chat/[room]", async (event) => {
+app.WS("/ws/chat/[room]", async (event) => {
   const room = event.params.room;
   const ws = event.websocket;
 
@@ -287,8 +289,8 @@ Use `dir()` to expose a directory through a route, or `serveStatic()` directly i
 ```ts
 import { dir } from "@sourceregistry/node-webserver";
 
-app.router.GET("/assets/[...path]", dir("./public/assets"));
-app.router.GET("/", dir("./public"));
+app.GET("/assets/[...path]", dir("./public/assets"));
+app.GET("/", dir("./public"));
 ```
 
 Manual usage:
@@ -296,7 +298,7 @@ Manual usage:
 ```ts
 import { serveStatic } from "@sourceregistry/node-webserver";
 
-app.router.GET("/downloads/[...path]", (event) => {
+app.GET("/downloads/[...path]", (event) => {
   return serveStatic("./downloads", event, {
     cacheControl: "public, max-age=3600"
   });
@@ -341,7 +343,7 @@ Available options:
 ```ts
 import { CORS } from "@sourceregistry/node-webserver";
 
-app.router.useMiddleware(CORS.policy({
+app.useMiddleware(CORS.policy({
   origin: ["https://app.example.com"],
   credentials: true,
   methods: ["GET", "POST", "DELETE"]
@@ -353,7 +355,7 @@ app.router.useMiddleware(CORS.policy({
 ```ts
 import { RateLimiter } from "@sourceregistry/node-webserver";
 
-app.router.useMiddleware(RateLimiter.fixedWindowLimit({
+app.useMiddleware(RateLimiter.fixedWindowLimit({
   windowMs: 60_000,
   max: 100
 }));
@@ -373,7 +375,7 @@ const app = new WebServer({
   }
 });
 
-app.router.GET("/", () => new Response("secure"));
+app.GET("/", () => new Response("secure"));
 app.listen(3443);
 ```
 
@@ -400,7 +402,7 @@ const app = new WebServer({
   }
 });
 
-app.router.pre(async (event) => {
+app.pre(async (event) => {
   if (event.url.pathname.startsWith("/private")) {
     const auth = event.request.headers.get("authorization");
     if (!auth) {
@@ -409,7 +411,7 @@ app.router.pre(async (event) => {
   }
 });
 
-app.router.useMiddleware(
+app.useMiddleware(
   CORS.policy({
     origin: "https://app.example.com",
     credentials: true
@@ -420,16 +422,16 @@ app.router.useMiddleware(
   })
 );
 
-app.router.GET("/", () => text("hello"));
+app.GET("/", () => text("hello"));
 
-app.router.GET("/users/[id]", (event) => {
+app.GET("/users/[id]", (event) => {
   return json({
     id: event.params.id,
     requestId: event.locals.startedAt
   });
 });
 
-app.router.post(async (_event, response) => {
+app.post(async (_event, response) => {
   const nextResponse = new Response(response.body, response);
   nextResponse.headers.set("x-server", "node-webserver");
   return nextResponse;

@@ -418,7 +418,7 @@ export class Router<Locals extends Record<string, any> = {}> {
     }
 
     // Handle HTTP request - FIXED: Single middleware application
-    async handle(event: RequestEvent): Promise<Response> {
+    protected async handle(event: RequestEvent): Promise<Response> {
         return this.handleAtPath(event, event.url.pathname);
     }
 

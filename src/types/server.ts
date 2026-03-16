@@ -13,7 +13,6 @@ import {
 import {TLSSocket} from 'tls';
 import {Readable, Transform, Writable} from 'stream';
 import {
-    type RequestMethod,
     type RequestEvent,
     Router
 } from './';
@@ -23,6 +22,12 @@ import {Cookies} from "./Cookies";
 import {ListenOptions} from "net";
 
 type HostMatcher = string | RegExp | ((host: string) => boolean);
+type InferServerLocals<TServerConfig extends ServerConfig> =
+    Extract<TServerConfig['locals'], (event: RequestEvent) => any> extends (event: RequestEvent) => infer TLocals
+        ? TLocals extends Record<string, any>
+            ? TLocals
+            : App.Locals
+        : App.Locals;
 type ListenArgs =
     | [port?: number, hostname?: string, backlog?: number, listeningListener?: () => void]
     | [port?: number, hostname?: string, listeningListener?: () => void]
@@ -87,22 +92,21 @@ export type HttpsServerConfig = {
 };
 
 export type ServerConfig = {
-    locals?: (event: RequestEvent) => App.Locals | Record<string, any>;
-    platform?: (event: RequestEvent) => App.Platform | Record<string, any>;
+    locals?: (event: RequestEvent) => App.Locals;
+    platform?: (event: RequestEvent) => App.Platform;
 } & (HttpServerConfig | HttpsServerConfig);
 
-export class WebServer<TServerConfig extends ServerConfig = ServerConfig> {
+export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extends Router<InferServerLocals<TServerConfig>> {
     private _server!: TServerConfig['type'] extends 'https' ? HttpsServer : HttpServer;
     private readonly config: TServerConfig;
-    public readonly router: Router;
     private upgradeHandlerInstalled = false;
 
     // Single WebSocket server instance
     private readonly wss: WebSocketServer;
 
     constructor(config?: TServerConfig) {
+        super();
         this.config = (config ?? {type: 'http', options: {}}) as TServerConfig;
-        this.router = new Router();
         this.wss = new WebSocketServer({
             noServer: true,
             maxPayload: this.config.security?.maxWebSocketPayload ?? 1024 * 1024
@@ -125,11 +129,6 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> {
                 : createHttpServer(this.config.options as ServerOptions, requestListener);
         }
         return this._server;
-    }
-
-    discard(path_or_prefix: string, method?: RequestMethod): this {
-        this.router.discard(path_or_prefix, method);
-        return this;
     }
 
     listen(port?: number, hostname?: string, backlog?: number, listeningListener?: () => void): this;
@@ -176,7 +175,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> {
                 }
             });
 
-            this.router.canHandleWebSocket(event)
+            this.canHandleWebSocket(event)
                 .then((canHandle) => {
                     if (!canHandle || !this.isAllowedWebSocketOrigin(req)) {
                         socket.destroy();
@@ -184,7 +183,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> {
                     }
 
                     this.wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
-                        this.router.handleWebSocket(event, ws).then((handled) => {
+                        this.handleWebSocket(event, ws).then((handled) => {
                             if (!handled && ws.readyState === WebSocket.OPEN) {
                                 ws.close(1008, 'Route not found');
                             }
@@ -239,7 +238,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> {
 
         let response: Response;
         try {
-            response = await this.router.handle(event);
+            response = await this.handle(event);
         } catch (err) {
             response = this.handleError(err);
         }

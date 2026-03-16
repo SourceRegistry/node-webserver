@@ -55,7 +55,7 @@ describe("static file helper", () => {
         await writeFile(join(assetsRoot, "app.js"), "console.log('ok');");
 
         const server = new WebServer();
-        server.router.GET("/assets/[...path]", dir(assetsRoot));
+        server.GET("/assets/[...path]", dir(assetsRoot));
 
         const port = await startServer(server);
         const response = await fetch(`http://127.0.0.1:${port}/assets/app.js`);

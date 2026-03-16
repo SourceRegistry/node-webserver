@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/SourceRegistry/node-webserver/compare/v1.0.0...v1.1.0) (2026-03-16)
+
+
+### Features
+
+* **webserver:** webserver now extends router for more ergonomic api ([33df4a1](https://github.com/SourceRegistry/node-webserver/commit/33df4a11bb4720c6aa66a694a6c62d08b8e7995d))
+
 # 1.0.0 (2026-03-16)
 
 

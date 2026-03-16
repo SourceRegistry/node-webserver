@@ -1,6 +1,6 @@
 import type {RequestEvent} from "./RequestEvent";
 import {RequestMethod, RequestMethods} from "./RequestMethod";
-import {isHttpError, isRedirect} from "../utils";
+import {isHttpError, isRedirect, isResponse} from "../utils";
 import {WebSocket} from "ws";
 import type {MaybePromise} from "./MaybePromise";
 
@@ -423,25 +423,30 @@ export class Router<Locals extends Record<string, any> = {}> {
     }
 
     private async handleAtPath(event: RequestEvent, path: string): Promise<Response> {
-        const method = event.request.method as RequestMethod;
-        let response = await this.runPreHandlers(event);
-        if (!response) {
-            // Apply global middlewares once at the top level
-            const handler = async () => {
-                // Try nested routers first
-                const nestedResponse = await this.handleNestedRouters(event, path);
-                if (nestedResponse) return nestedResponse;
+        try {
+            const method = event.request.method as RequestMethod;
+            let response = await this.runPreHandlers(event);
+            if (!response) {
+                // Apply global middlewares once at the top level
+                const handler = async () => {
+                    // Try nested routers first
+                    const nestedResponse = await this.handleNestedRouters(event, path);
+                    if (nestedResponse) return nestedResponse;
 
-                // Then try local routes
-                if (!this.routesSorted) this.sortRoutes();
-                return this.handleLocalRoutes(event, method, path);
-            };
+                    // Then try local routes
+                    if (!this.routesSorted) this.sortRoutes();
+                    return this.handleLocalRoutes(event, method, path);
+                };
 
-            response = await this.applyMiddlewaresWithList(event, this._middlewares, handler);
+                response = await this.applyMiddlewaresWithList(event, this._middlewares, handler);
+            }
+
+            const finalResponse = response || new Response("No Content", {status: 204});
+            return await this.runPostHandlers(event, finalResponse);
+        } catch (err) {
+            if (isResponse(err)) return err;
+            throw err;
         }
-
-        const finalResponse = response || new Response("No Content", {status: 204});
-        return this.runPostHandlers(event, finalResponse);
     }
 
     // Apply middlewares utility
@@ -702,7 +707,7 @@ export class Router<Locals extends Record<string, any> = {}> {
 
     private handleActionError(err: unknown): Response {
         if (isHttpError(err)) {
-            return Action.error(err.status, err);
+            return Action.error(err.status, {message: err.statusText || 'Error'});
         }
         if (isRedirect(err)) {
             const url = err.headers.get('Location') || '/';
@@ -731,7 +736,7 @@ export const Action = {
             headers: {'Content-Type': 'application/json'}
         }),
 
-    error: (code: number = 500, error: any): Response =>
+    error: (code: number = 500, error: App.Error): Response =>
         new Response(JSON.stringify({error, type: 'error', status: code}), {
             status: code,
             headers: {'Content-Type': 'application/json'}

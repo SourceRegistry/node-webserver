@@ -20,6 +20,24 @@ export const json = async (data: MaybePromise<any>, init?: ResponseInit) => {
     })
 }
 
+export function redirect(status: 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 | 308 | ({} & number), location: string | URL): never{
+    throw new Response(null, {
+        status,
+        headers: {
+            location: location.toString()
+        }
+    })
+}
+
+export function error(status: number, body: App.Error | string): never{
+    throw new Response(JSON.stringify(typeof body === "string" ? {message: body} : body), {
+        status,
+        headers: {
+            'content-type': 'application/json'
+        }
+    })
+}
+
 export const text = async (body: MaybePromise<string>, init?: ResponseInit) => {
     const content = await body
     return new Response(content, {

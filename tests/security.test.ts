@@ -4,7 +4,7 @@ import {WebSocket} from "ws";
 
 import {CORS} from "../src/middlewares";
 import {fixedWindowLimit} from "../src/middlewares/ratelimiter";
-import {Router, WebServer, text} from "../src";
+import {error, redirect, Router, WebServer, text} from "../src";
 
 const servers: WebServer[] = [];
 
@@ -326,6 +326,39 @@ describe("nested routers", () => {
             },
             type: "success",
             status: 200
+        });
+    });
+
+    it("returns thrown redirects from nested routers immediately", async () => {
+        const server = new WebServer();
+        const nested = new Router();
+
+        nested.GET("/old", () => redirect(302, "/target"));
+
+        server.use("/api", nested);
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/api/old`, {
+            redirect: "manual"
+        });
+
+        expect(response.status).toBe(302);
+        expect(response.headers.get("location")).toBe("/target");
+    });
+});
+
+describe("thrown response helpers", () => {
+    it("returns thrown route errors without falling through", async () => {
+        const server = new WebServer();
+
+        server.GET("/", () => error(418, "short and stout"));
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/`);
+
+        expect(response.status).toBe(418);
+        expect(await response.json()).toEqual({
+            message: "short and stout"
         });
     });
 });

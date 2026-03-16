@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/SourceRegistry/node-webserver/compare/v1.1.0...v1.2.0) (2026-03-16)
+
+
+### Features
+
+* **redirect/error:** more direct error path in routes and cleaner return ([9064120](https://github.com/SourceRegistry/node-webserver/commit/90641209b07f580b45bef06c4cb1c76530f6b8ad))
+
 # [1.1.0](https://github.com/SourceRegistry/node-webserver/compare/v1.0.0...v1.1.0) (2026-03-16)
 
 

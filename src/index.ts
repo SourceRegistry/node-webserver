@@ -1,12 +1,10 @@
 import type {MaybePromise} from "./types/MaybePromise";
-import {serveStatic, StaticOptions} from "./static";
-import {RouteHandler} from "./types";
 
 export * from './app'
 export * from './utils'
 export * from './middlewares'
 export * from './types'
-export * from './static'
+export * from './helpers/static'
 
 export const json = async (data: MaybePromise<any>, init?: ResponseInit) => {
     const content = JSON.stringify(await data);
@@ -20,7 +18,7 @@ export const json = async (data: MaybePromise<any>, init?: ResponseInit) => {
     })
 }
 
-export function redirect(status: 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 | 308 | ({} & number), location: string | URL): never{
+export function redirect(status: 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 | 308 | ({} & number), location: string | URL): never {
     throw new Response(null, {
         status,
         headers: {
@@ -29,7 +27,7 @@ export function redirect(status: 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 |
     })
 }
 
-export function error(status: number, body: App.Error | string): never{
+export function error(status: number, body: App.Error | string): never {
     throw new Response(JSON.stringify(typeof body === "string" ? {message: body} : body), {
         status,
         headers: {
@@ -62,5 +60,6 @@ export const html = async (html: MaybePromise<string>, init?: ResponseInit) => {
     })
 }
 
-export const dir = <Path extends string>(root: string, options: StaticOptions = {}): RouteHandler<Path> =>
-    (event) => serveStatic(root, event, options);
+export {default as dir} from "./helpers/static"
+
+export {default as sse} from "./helpers/sse"

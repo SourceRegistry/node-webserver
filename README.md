@@ -150,6 +150,31 @@ api.GET("/legacy", () => {
 app.use("/api", api);
 ```
 
+It also exports `sse()` for Server-Sent Events. The helper creates a streaming response and passes your callback an `emit()` function. You can also pass a `ResponseInit` object to override status or headers.
+
+```ts
+import { sse } from "@sourceregistry/node-webserver";
+
+app.GET("/events", sse((event, emit) => {
+  emit({ connected: true }, { event: "ready", id: "1" });
+  emit(`hello ${event.getClientAddress()}`);
+}, {
+  status: 200,
+  headers: {
+    "x-stream": "enabled"
+  }
+}));
+```
+
+`emit(data, options)` supports:
+
+- `event` for the SSE event name
+- `id` for the SSE event id
+- `retry` for the reconnection delay
+- `comment` for SSE comment lines
+
+Objects are serialized as JSON automatically. Strings are sent as plain `data:` lines.
+
 ## Request Handling
 
 Route handlers receive a web-standard `Request` plus extra routing data:

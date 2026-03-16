@@ -3,7 +3,7 @@ import { lstat, realpath, stat } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 
-import type { RequestEvent } from "./types";
+import type {RequestEvent, RouteHandler} from "../types";
 
 const MIME_TYPES: Record<string, string> = {
     ".avif": "image/avif",
@@ -183,3 +183,7 @@ function getStaticRequestPath(event: RequestEvent): string {
 
     return event.url.pathname.replace(/^\/+/, "");
 }
+
+
+export default <Path extends string>(root: string, options: StaticOptions = {}): RouteHandler<Path> =>
+    (event) => serveStatic(root, event, options);

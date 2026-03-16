@@ -4,7 +4,7 @@ import {WebSocket} from "ws";
 
 import {CORS} from "../src/middlewares";
 import {fixedWindowLimit} from "../src/middlewares/ratelimiter";
-import {error, redirect, Router, WebServer, text} from "../src";
+import {error, redirect, Router, sse, WebServer, text} from "../src";
 
 const servers: WebServer[] = [];
 
@@ -383,5 +383,40 @@ describe("cors middleware", () => {
 
         expect(response.status).toBe(204);
         expect(response.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+    });
+});
+
+describe("sse helper", () => {
+    it("streams events and respects response init options", async () => {
+        const server = new WebServer();
+
+        server.GET("/events", sse((_event, emit) => {
+            emit({ok: true}, {event: "message", id: "1"});
+            emit("ready", {comment: "connected"});
+        }, {
+            status: 202,
+            headers: {
+                "x-stream": "enabled"
+            }
+        }));
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/events`);
+        const reader = response.body?.getReader();
+
+        expect(response.status).toBe(202);
+        expect(response.headers.get("content-type")).toContain("text/event-stream");
+        expect(response.headers.get("x-stream")).toBe("enabled");
+
+        const chunk = await reader?.read();
+        const body = chunk?.value ? Buffer.from(chunk.value).toString("utf8") : "";
+
+        expect(body).toContain("event: message");
+        expect(body).toContain("id: 1");
+        expect(body).toContain('data: {"ok":true}');
+        expect(body).toContain(": connected");
+        expect(body).toContain("data: ready");
+
+        await reader?.cancel();
     });
 });

@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/SourceRegistry/node-webserver/compare/v1.2.1...v1.2.2) (2026-03-16)
+
+
+### Bug Fixes
+
+* **sse:** added server send events response helper ([4481d33](https://github.com/SourceRegistry/node-webserver/commit/4481d33dc80a8054d29287800460cba94d30617b))
+
 ## [1.2.1](https://github.com/SourceRegistry/node-webserver/compare/v1.2.0...v1.2.1) (2026-03-16)
 
 

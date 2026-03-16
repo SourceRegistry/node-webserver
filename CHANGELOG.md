@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/SourceRegistry/node-webserver/compare/v1.2.0...v1.2.1) (2026-03-16)
+
+
+### Bug Fixes
+
+* **docs:** redirect/error in README ([1728439](https://github.com/SourceRegistry/node-webserver/commit/172843918319224d0c9d1a6021f7acf412cfd5f4))
+
 # [1.2.0](https://github.com/SourceRegistry/node-webserver/compare/v1.1.0...v1.2.0) (2026-03-16)
 
 

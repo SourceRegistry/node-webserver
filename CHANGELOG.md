@@ -1,3 +1,10 @@
+## [1.2.3](https://github.com/SourceRegistry/node-webserver/compare/v1.2.2...v1.2.3) (2026-03-16)
+
+
+### Bug Fixes
+
+* **router:** Made router use App.Locals ([dce68d4](https://github.com/SourceRegistry/node-webserver/commit/dce68d46b3b954d277a9dc2598b9315a4fb1b0da))
+
 ## [1.2.2](https://github.com/SourceRegistry/node-webserver/compare/v1.2.1...v1.2.2) (2026-03-16)
 
 

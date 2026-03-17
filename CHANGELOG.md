@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/SourceRegistry/node-webserver/compare/v1.2.3...v1.3.0) (2026-03-17)
+
+
+### Features
+
+* add route enhancers and server-aware event fetch ([4bbb80c](https://github.com/SourceRegistry/node-webserver/commit/4bbb80ccac62895913f5a7ee3df753cd7d0284db))
+
 ## [1.2.3](https://github.com/SourceRegistry/node-webserver/compare/v1.2.2...v1.2.3) (2026-03-16)
 
 

@@ -25,8 +25,7 @@ export type ExtractSegmentParam<S extends string> =
 
 export type MergeParams<A, B> = A & B;
 
-// Add Locals generic
-export type RouteHandler<Path extends string, Locals extends Record<string, any> = {}> = (
+export type RouteHandler<Path extends string, Locals extends App.Locals = App.Locals> = (
     event: RequestEvent<
         ExtractPathParams<Path> & RequestEvent['params'],
         Path,
@@ -44,23 +43,29 @@ export type Action<
 // Middleware with locals support
 export type Middleware<
     Path extends string = string,
-    AddedLocals extends Record<string, any> = {}
+    AddedLocals extends App.Locals = App.Locals
 > = (
-    event: RequestEvent<any, Path, any> & { locals: Record<string, any> & AddedLocals },
-    next: () => MaybePromise<Response | undefined>
+    event: MiddlewareEvent<Path, AddedLocals>,
+    next: NextFunction
 ) => MaybePromise<Response | undefined>;
 
-export type PreHandler<Locals extends Record<string, any> = {}> = (
+export type NextFunction = () => MaybePromise<Response | undefined>
+export type MiddlewareEvent<
+    Path extends string = string,
+    AddedLocals extends App.Locals = App.Locals
+> = RequestEvent<any, Path | null, App.Locals & AddedLocals>
+
+export type PreHandler<Locals extends App.Locals = App.Locals> = (
     event: RequestEvent<any, string, Locals>
 ) => MaybePromise<Response | void>;
 
-export type PostHandler<Locals extends Record<string, any> = {}> = (
+export type PostHandler<Locals extends App.Locals = App.Locals> = (
     event: RequestEvent<any, string, Locals>,
     response: Response
 ) => MaybePromise<Response | void>;
 
 // WebSocket Handler
-export type WebSocketHandler<Path extends string, Locals extends Record<string, any> = {}> = (
+export type WebSocketHandler<Path extends string, Locals extends App.Locals = App.Locals> = (
     event: RequestEvent<
         ExtractPathParams<Path> & RequestEvent['params'],
         Path,
@@ -228,9 +233,9 @@ export class Router<Locals extends App.Locals = App.Locals> {
     }
 
     // Nested routing
-    use<Prefix extends string, InnerLocals extends Record<string, any>>(input: readonly [Prefix, Router<InnerLocals>, ...Middleware<Prefix>[]]): Router<Locals & InnerLocals>;
-    use<Prefix extends string, InnerLocals extends Record<string, any>>(prefix: Prefix, router: Router<InnerLocals>, ...middlewares: Middleware<Prefix>[]): Router<Locals & InnerLocals>;
-    use<Prefix extends string, InnerLocals extends Record<string, any>>(arg1: string | readonly [Prefix, Router<InnerLocals>, ...Middleware<Prefix>[]], arg2?: Router<InnerLocals>, ...middlewares: Middleware<Prefix>[]): Router<Locals & InnerLocals> {
+    use<Prefix extends string, InnerLocals extends App.Locals = App.Locals>(input: readonly [Prefix, Router<InnerLocals>, ...Middleware<Prefix>[]]): Router<Locals & InnerLocals>;
+    use<Prefix extends string, InnerLocals extends App.Locals = App.Locals>(prefix: Prefix, router: Router<InnerLocals>, ...middlewares: Middleware<Prefix>[]): Router<Locals & InnerLocals>;
+    use<Prefix extends string, InnerLocals extends App.Locals = App.Locals>(arg1: string | readonly [Prefix, Router<InnerLocals>, ...Middleware<Prefix>[]], arg2?: Router<InnerLocals>, ...middlewares: Middleware<Prefix>[]): Router<Locals & InnerLocals> {
         let prefix: Prefix;
         let router: Router<InnerLocals>;
         let finalMiddlewares: Middleware<Prefix>[] = middlewares;
@@ -260,7 +265,7 @@ export class Router<Locals extends App.Locals = App.Locals> {
     }
 
     // Global middleware
-    useMiddleware<NewLocals extends Record<string, any>>(
+    useMiddleware<NewLocals extends App.Locals = App.Locals>(
         ...mw: Middleware<string, NewLocals>[]
     ): Router<Locals & NewLocals> {
         this._middlewares.push(...mw);

@@ -2,7 +2,7 @@ import {Cookies} from "./Cookies";
 
 export interface RequestEvent<
     Params extends Partial<Record<string, string>> = Partial<Record<string, string>>,
-    RouteId extends string  = string,
+    RouteId extends string | null = string | null,
     Locals extends App.Locals = App.Locals
 > {
     /**
@@ -25,6 +25,14 @@ export interface RequestEvent<
      * Additional data made available through the adapter.
      */
     platform: Readonly<App.Platform> | undefined;
+    /**
+     * A server-aware variant of the native `fetch`.
+     *
+     * It resolves relative URLs against `event.url`, forwards `cookie` and
+     * `authorization` headers by default, and dispatches same-origin requests
+     * internally through the router when possible.
+     */
+    fetch: typeof fetch;
     /**
      * The original request object.
      */

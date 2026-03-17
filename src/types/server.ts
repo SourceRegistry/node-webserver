@@ -24,7 +24,7 @@ import {ListenOptions} from "net";
 type HostMatcher = string | RegExp | ((host: string) => boolean);
 type InferServerLocals<TServerConfig extends ServerConfig> =
     Extract<TServerConfig['locals'], (event: RequestEvent) => any> extends (event: RequestEvent) => infer TLocals
-        ? TLocals extends Record<string, any>
+        ? TLocals extends App.Locals
             ? TLocals
             : App.Locals
         : App.Locals;
@@ -452,6 +452,82 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         return this.matchesValue(origin, allowedOrigins);
     }
 
+    private createEventFetch(
+        parentEvent: RequestEvent,
+        utils: {
+            getClientAddress: () => string;
+            setHeader: (name: string, value: string) => void;
+            pushSetCookie: (serialized: string) => void;
+        }
+    ): typeof fetch {
+        return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+            const request = this.toEventFetchRequest(parentEvent, input, init);
+            if (request.url.startsWith(`${parentEvent.url.origin}/`)) {
+                const internalEvent = this.toRequestEvent(request, new URL(request.url), utils);
+
+                try {
+                    return await this.handle(internalEvent);
+                } catch (err) {
+                    return this.handleError(err);
+                }
+            }
+
+            return fetch(request);
+        };
+    }
+
+    private toEventFetchRequest(parentEvent: RequestEvent, input: RequestInfo | URL, init?: RequestInit): Request {
+        const requestLike = input instanceof URL
+            ? input.toString()
+            : input;
+
+        const baseRequest = requestLike instanceof Request
+            ? requestLike
+            : new Request(new URL(String(requestLike), parentEvent.url), init);
+
+        if (requestLike instanceof Request && !init) {
+            return this.withInheritedRequestHeaders(parentEvent, requestLike);
+        }
+
+        const headers = new Headers(requestLike instanceof Request ? requestLike.headers : init?.headers);
+        const method = init?.method ?? (requestLike instanceof Request ? requestLike.method : undefined);
+        const body = init?.body ?? (requestLike instanceof Request ? requestLike.body : undefined);
+        const duplex = body ? 'half' : undefined;
+
+        this.inheritRequestHeader(parentEvent.request.headers, headers, 'cookie');
+        this.inheritRequestHeader(parentEvent.request.headers, headers, 'authorization');
+
+        return new Request(baseRequest.url, {
+            ...init,
+            method,
+            headers,
+            body,
+            // @ts-ignore
+            duplex
+        });
+    }
+
+    private withInheritedRequestHeaders(parentEvent: RequestEvent, request: Request): Request {
+        const headers = new Headers(request.headers);
+        this.inheritRequestHeader(parentEvent.request.headers, headers, 'cookie');
+        this.inheritRequestHeader(parentEvent.request.headers, headers, 'authorization');
+
+        return new Request(request, {
+            headers,
+            // @ts-ignore
+            duplex: request.body ? 'half' : undefined
+        });
+    }
+
+    private inheritRequestHeader(source: Headers, target: Headers, name: string): void {
+        if (target.has(name)) return;
+
+        const value = source.get(name);
+        if (value) {
+            target.set(name, value);
+        }
+    }
+
     private toRequestEvent(
         request: Request,
         url: URL,
@@ -463,7 +539,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
     ): RequestEvent<{}> {
         const cookies = new Cookies(request, utils.pushSetCookie);
         const handlers = this.config;
-        const locals: App.Locals | Record<string, any> = {};
+        const locals: App.Locals = {} as App.Locals;
         const platform: App.Platform | Record<string, any> = {name: 'WebHTTPServer'};
         const setHeadersState = new Set<string>();
 
@@ -478,8 +554,9 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
             get platform(): App.Platform | undefined {
                 return platform;
             },
+            fetch: async (input: RequestInfo | URL, init?: RequestInit) => eventFetch(input, init),
             params: {},
-            route: {id: ''},
+            route: {id: null},
             setHeaders: (headers: Record<string, string>) => {
                 for (const [name, value] of Object.entries(headers)) {
                     const normalizedName = name.toLowerCase();
@@ -494,6 +571,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
                 }
             }
         };
+        const eventFetch = this.createEventFetch(event, utils);
 
         if (handlers.locals) {
             Object.assign(locals, handlers.locals(event));

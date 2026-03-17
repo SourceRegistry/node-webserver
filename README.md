@@ -10,6 +10,7 @@ It provides:
 
 - A typed router with path params
 - Middleware support
+- Route enhancers for typed request-scoped context
 - Router lifecycle hooks with `pre()` and `post()`
 - WebSocket routing
 - Cookie helpers
@@ -201,12 +202,30 @@ Available fields include:
 
 - `event.request`
 - `event.url`
+- `event.fetch(...)`
 - `event.params`
 - `event.locals`
 - `event.platform`
 - `event.cookies`
 - `event.getClientAddress()`
 - `event.setHeaders(...)`
+
+`event.fetch(...)` is a server-aware variant of the native Fetch API:
+
+- it resolves relative URLs against the current request URL
+- it forwards `cookie` and `authorization` headers by default
+- it dispatches same-origin requests internally through the router when possible
+
+```ts
+app.GET("/posts", async (event) => {
+  const response = await event.fetch("/api/posts");
+  return new Response(await response.text(), {
+    headers: {
+      "content-type": response.headers.get("content-type") ?? "text/plain"
+    }
+  });
+});
+```
 
 ## App Typings
 
@@ -262,6 +281,49 @@ const requireApiKey = async (event, next) => {
 };
 
 app.GET("/admin", () => new Response("secret"), requireApiKey);
+```
+
+## Route Enhancers
+
+Use `enhance()` when you want to derive typed request-scoped data for a single handler without putting everything on `event.locals`.
+
+Each enhancer receives the normal request event and can:
+
+- return an object to merge into `event.context`
+- return `undefined` to contribute nothing
+- return a `Response` to short-circuit the route early
+- throw `error(...)`, `redirect(...)`, or `new Response(...)` for the same control flow used elsewhere in the router
+
+```ts
+import { enhance, error } from "@sourceregistry/node-webserver";
+
+app.GET("/admin", enhance(
+  async (event) => {
+    return new Response(JSON.stringify({
+      userId: event.context.user.id,
+      requestId: event.context.requestId
+    }), {
+      headers: {
+        "content-type": "application/json"
+      }
+    });
+  },
+  async (event) => {
+    const token = event.request.headers.get("authorization");
+    if (!token) {
+      error(401, { message: "Unauthorized" });
+    }
+
+    return {
+      user: { id: "u_1", role: "admin" }
+    };
+  },
+  async (event) => {
+    return {
+      requestId: event.locals.requestId
+    };
+  }
+));
 ```
 
 ## Router Lifecycle Hooks

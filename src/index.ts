@@ -5,6 +5,7 @@ export * from './utils'
 export * from './middlewares'
 export * from './types'
 export * from './helpers/static'
+export * from './enhance'
 
 export const json = async (data: MaybePromise<any>, init?: ResponseInit) => {
     const content = JSON.stringify(await data);

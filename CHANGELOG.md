@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/SourceRegistry/node-webserver/compare/v1.3.1...v1.4.0) (2026-03-20)
+
+
+### Bug Fixes
+
+* **tests:** fix naming of server test ([fa5eaf6](https://github.com/SourceRegistry/node-webserver/commit/fa5eaf694bf55bd65d8fdd22b7968679a5604477))
+
+
+### Features
+
+* harden server runtime and add production middleware ([b198d9b](https://github.com/SourceRegistry/node-webserver/commit/b198d9b6ce21fc61e1a5aa9bcc1c5bd9549e3135))
+
 ## [1.3.1](https://github.com/SourceRegistry/node-webserver/compare/v1.3.0...v1.3.1) (2026-03-20)
 
 

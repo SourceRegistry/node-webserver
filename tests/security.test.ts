@@ -419,4 +419,98 @@ describe("sse helper", () => {
 
         await reader?.cancel();
     });
+
+    it("runs cleanup when the client disconnects mid-stream", async () => {
+        const server = new WebServer();
+        let cleaned = false;
+
+        server.GET("/events", sse((_event, emit) => {
+            const timer = setInterval(() => {
+                emit({ok: true});
+            }, 10);
+
+            return () => {
+                cleaned = true;
+                clearInterval(timer);
+            };
+        }));
+
+        const port = await startServer(server);
+        await new Promise<void>((resolve, reject) => {
+            const req = httpRequest({
+                host: "127.0.0.1",
+                port,
+                path: "/events",
+                method: "GET"
+            }, (res) => {
+                res.once("data", () => {
+                    req.destroy();
+                    setTimeout(resolve, 50);
+                });
+            });
+
+            req.on("error", reject);
+            req.end();
+        });
+
+        expect(cleaned).toBe(true);
+    });
+});
+
+describe("stream lifecycle", () => {
+    it("aborts generic streaming responses when the client disconnects", async () => {
+        const server = new WebServer();
+        let aborted = false;
+
+        server.GET("/stream", (event) => {
+            const encoder = new TextEncoder();
+            let timer: ReturnType<typeof setInterval> | undefined;
+            let controllerRef: ReadableStreamDefaultController<Uint8Array> | undefined;
+
+            event.request.signal.addEventListener("abort", () => {
+                aborted = true;
+                if (timer) {
+                    clearInterval(timer);
+                }
+                try {
+                    controllerRef?.close();
+                } catch {
+                }
+            }, {once: true});
+
+            return new Response(new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controllerRef = controller;
+                    timer = setInterval(() => {
+                        controller.enqueue(encoder.encode("chunk\n"));
+                    }, 10);
+                },
+                cancel() {
+                    if (timer) {
+                        clearInterval(timer);
+                    }
+                }
+            }));
+        });
+
+        const port = await startServer(server);
+        await new Promise<void>((resolve, reject) => {
+            const req = httpRequest({
+                host: "127.0.0.1",
+                port,
+                path: "/stream",
+                method: "GET"
+            }, (res) => {
+                res.once("data", () => {
+                    req.destroy();
+                    setTimeout(resolve, 50);
+                });
+            });
+
+            req.on("error", reject);
+            req.end();
+        });
+
+        expect(aborted).toBe(true);
+    });
 });

@@ -1,3 +1,5 @@
+import {request as httpRequest} from "node:http";
+
 import {afterEach, describe, expect, it} from "vitest";
 
 import {json, WebServer} from "../src";
@@ -133,5 +135,50 @@ describe("event.fetch", () => {
             inner: "/inner",
             outer: "/outer"
         });
+    });
+
+    it("propagates aborts to internal requests", async () => {
+        const server = new WebServer();
+        let innerAborted = false;
+
+        server.GET("/inner", (event) => new Promise<Response>((resolve) => {
+            const timer = setTimeout(() => {
+                resolve(new Response("timeout"));
+            }, 200);
+
+            event.request.signal.addEventListener("abort", () => {
+                innerAborted = true;
+                clearTimeout(timer);
+                resolve(new Response("aborted"));
+            }, {once: true});
+        }));
+
+        server.GET("/outer", async (event) => event.fetch("/inner"));
+
+        const port = await startServer(server);
+        await new Promise<void>((resolve, reject) => {
+            const req = httpRequest({
+                host: "127.0.0.1",
+                port,
+                path: "/outer",
+                method: "GET"
+            });
+
+            req.on("error", (error: NodeJS.ErrnoException) => {
+                if (error.code === "ECONNRESET") {
+                    resolve();
+                    return;
+                }
+                reject(error);
+            });
+
+            req.end();
+            setTimeout(() => {
+                req.destroy();
+                setTimeout(resolve, 50);
+            }, 30);
+        });
+
+        expect(innerAborted).toBe(true);
     });
 });

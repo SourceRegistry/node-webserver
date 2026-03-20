@@ -51,7 +51,10 @@ export default <Path extends string>(emitter: SSEHandler<Path>, init: ResponseIn
             try {
                 await cleanup?.();
             } finally {
-                controllerRef?.close();
+                try {
+                    controllerRef?.close();
+                } catch {
+                }
             }
         };
 
@@ -70,10 +73,12 @@ export default <Path extends string>(emitter: SSEHandler<Path>, init: ResponseIn
 
                 try {
                     cleanup = await emitter(event, emit);
-                    if (!event.request.signal.aborted && cleanup === undefined) {
+                    if (event.request.signal.aborted) {
+                        await closeStream();
                         return;
                     }
-                    if (event.request.signal.aborted) {
+
+                    if (cleanup === undefined) {
                         await closeStream();
                     }
                 } catch (err) {

@@ -220,7 +220,13 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
             return;
         }
 
-        const request = this.toWebRequest(req);
+        const abortController = new AbortController();
+        const abortRequest = () => abortController.abort();
+        req.once('aborted', abortRequest);
+        req.once('close', abortRequest);
+        res.once('close', abortRequest);
+
+        const request = this.toWebRequest(req, abortController.signal);
         const url = new URL(request.url);
 
         const setHeaders: Record<string, string> = {};
@@ -254,15 +260,16 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         await this.sendWebResponse(res, response);
     }
 
-    private toWebRequest(req: IncomingMessage): Request {
+    private toWebRequest(req: IncomingMessage, signal?: AbortSignal): Request {
         const url = this.toURL(req, false);
-        return this.toRequest(req, url, false);
+        return this.toRequest(req, url, false, signal);
     }
 
-    private toRequest(req: IncomingMessage, url: URL, isWebSocket: boolean): Request {
+    private toRequest(req: IncomingMessage, url: URL, isWebSocket: boolean, signal?: AbortSignal): Request {
         const init: RequestInit = {
             method: isWebSocket ? 'GET' : req.method,
             headers: this.toHeaders(req.headers),
+            signal,
             // @ts-ignore
             duplex: 'half'
         };
@@ -424,6 +431,18 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
 
         const reader = response.body.getReader();
         const writer = Writable.toWeb(res).getWriter();
+        let streamClosed = false;
+
+        const cancelReader = async () => {
+            if (streamClosed) return;
+            streamClosed = true;
+            await reader.cancel().catch(() => {
+            });
+        };
+        const onResponseClose = () => {
+            void cancelReader();
+        };
+        res.once('close', onResponseClose);
 
         try {
             while (true) {
@@ -431,10 +450,29 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
                 if (done) break;
                 await writer.write(value);
             }
+            streamClosed = true;
+        } catch (err) {
+            await cancelReader();
+
+            if (!this.isPrematureCloseError(err)) {
+                throw err;
+            }
         } finally {
+            res.off('close', onResponseClose);
             await writer.close().catch(() => {
             });
         }
+    }
+
+    private isPrematureCloseError(err: unknown): boolean {
+        if (!(err instanceof Error)) return false;
+
+        const code = 'code' in err ? err.code : undefined;
+        if (code === 'ABORT_ERR' || code === 'ERR_STREAM_PREMATURE_CLOSE') {
+            return true;
+        }
+
+        return err.name === 'AbortError';
     }
 
     private shouldOmitResponseBody(response: Response, method?: string): boolean {
@@ -502,6 +540,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
             method,
             headers,
             body,
+            signal: init?.signal ?? parentEvent.request.signal,
             // @ts-ignore
             duplex
         });
@@ -514,6 +553,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
 
         return new Request(request, {
             headers,
+            signal: parentEvent.request.signal,
             // @ts-ignore
             duplex: request.body ? 'half' : undefined
         });

@@ -1,3 +1,11 @@
+## [1.3.1](https://github.com/SourceRegistry/node-webserver/compare/v1.3.0...v1.3.1) (2026-03-20)
+
+
+### Bug Fixes
+
+* harden streaming abort and sse cleanup ([46048d9](https://github.com/SourceRegistry/node-webserver/commit/46048d9876548781e255987025ab4e28ba869c4b))
+* **package.json:** updated packages ([ed35f7a](https://github.com/SourceRegistry/node-webserver/commit/ed35f7a021c224314c7746fd1808e0ec69509d06))
+
 # [1.3.0](https://github.com/SourceRegistry/node-webserver/compare/v1.2.3...v1.3.0) (2026-03-17)
 
 

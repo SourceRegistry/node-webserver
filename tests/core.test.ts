@@ -465,7 +465,7 @@ describe("request event behavior", () => {
             const response = await fetch(`http://127.0.0.1:${port}/`);
 
             expect(await response.json()).toEqual({
-                name: "WebHTTPServer",
+                name: "node-webserver",
                 dev: true,
                 region: "eu-west-1"
             });

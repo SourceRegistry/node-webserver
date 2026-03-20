@@ -21,7 +21,7 @@ import {WebSocketServer, WebSocket} from "ws";
 import {Cookies} from "./Cookies";
 import {ListenOptions} from "net";
 
-type HostMatcher = string | RegExp | ((host: string) => boolean);
+type ValueMatcher = string | RegExp | ((value: string) => boolean);
 type InferServerLocals<TServerConfig extends ServerConfig> =
     Extract<TServerConfig['locals'], (event: RequestEvent) => any> extends (event: RequestEvent) => infer TLocals
         ? TLocals extends App.Locals
@@ -58,19 +58,42 @@ export type SecurityConfig = {
     /**
      * Restrict trusted Host values when trustHostHeader is enabled.
      */
-    allowedHosts?: HostMatcher | HostMatcher[];
+    allowedHosts?: ValueMatcher | ValueMatcher[];
+
+    /**
+     * Trust forwarded proxy headers only when the direct peer matches one of these values.
+     */
+    trustedProxies?: ValueMatcher | ValueMatcher[];
 
     /**
      * Restrict accepted WebSocket Origin values.
      * When omitted, Origin is not enforced by default.
      */
-    allowedWebSocketOrigins?: HostMatcher | HostMatcher[];
+    allowedWebSocketOrigins?: ValueMatcher | ValueMatcher[];
 
     /**
      * Maximum accepted request body size based on Content-Length.
      * Requests above the limit are rejected before the body is read.
      */
     maxRequestBodySize?: number;
+
+    /**
+     * Maximum time allowed to receive the complete request headers.
+     * @default 30000
+     */
+    headersTimeoutMs?: number;
+
+    /**
+     * Maximum time allowed for the full request lifecycle.
+     * @default 60000
+     */
+    requestTimeoutMs?: number;
+
+    /**
+     * How long to keep idle keep-alive connections open.
+     * @default 5000
+     */
+    keepAliveTimeoutMs?: number;
 
     /**
      * Maximum accepted WebSocket message size in bytes.
@@ -127,6 +150,8 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
             this._server = this.config.type === 'https'
                 ? createHttpsServer(this.config.options as HttpsServerOptions, requestListener)
                 : createHttpServer(this.config.options as ServerOptions, requestListener);
+
+            this.configureServerTimeouts(this._server);
         }
         return this._server;
     }
@@ -168,7 +193,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
             }
 
             const event = this.toRequestEvent(request, url, {
-                getClientAddress: () => req.socket.remoteAddress ?? '127.0.0.1',
+                getClientAddress: () => this.getClientAddress(req),
                 setHeader: () => {
                 },
                 pushSetCookie: () => {
@@ -233,7 +258,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         const setCookies: string[] = [];
 
         const event = this.toRequestEvent(request, url, {
-            getClientAddress: () => req.socket.remoteAddress ?? '127.0.0.1',
+            getClientAddress: () => this.getClientAddress(req),
             setHeader: (name: string, value: string) => {
                 setHeaders[name.toLowerCase()] = value;
             },
@@ -307,13 +332,28 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
     }
 
     private toURL(req: IncomingMessage, isWebSocket: boolean): URL {
-        const protocol = req.socket instanceof TLSSocket ? (isWebSocket ? 'wss' : 'https') : (isWebSocket ? 'ws' : 'http');
+        const protocol = this.resolveProtocol(req, isWebSocket);
         const authority = this.resolveAuthority(req);
         return new URL(req.url ?? '/', `${protocol}://${authority}`);
     }
 
+    private resolveProtocol(req: IncomingMessage, isWebSocket: boolean): 'http' | 'https' | 'ws' | 'wss' {
+        const forwardedProto = this.getTrustedForwardedHeader(req, 'x-forwarded-proto');
+        const normalizedForwardedProto = forwardedProto?.split(',')[0]?.trim().toLowerCase();
+
+        if (normalizedForwardedProto === 'http' || normalizedForwardedProto === 'https') {
+            if (isWebSocket) {
+                return normalizedForwardedProto === 'https' ? 'wss' : 'ws';
+            }
+            return normalizedForwardedProto;
+        }
+
+        return req.socket instanceof TLSSocket ? (isWebSocket ? 'wss' : 'https') : (isWebSocket ? 'ws' : 'http');
+    }
+
     private resolveAuthority(req: IncomingMessage): string {
-        const trustedAuthority = this.config.security?.trustHostHeader ? this.normalizeTrustedHost(req.headers.host) : null;
+        const hostHeader = this.getTrustedForwardedHeader(req, 'x-forwarded-host') ?? req.headers.host;
+        const trustedAuthority = this.config.security?.trustHostHeader ? this.normalizeTrustedHost(hostHeader) : null;
         if (trustedAuthority) {
             return trustedAuthority;
         }
@@ -325,6 +365,30 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         }
 
         return req.socket.localPort ? `127.0.0.1:${req.socket.localPort}` : 'localhost';
+    }
+
+    private getClientAddress(req: IncomingMessage): string {
+        const remoteAddress = req.socket.remoteAddress ?? '127.0.0.1';
+        if (!this.isTrustedProxy(remoteAddress)) {
+            return this.normalizeAddress(remoteAddress);
+        }
+
+        const forwardedFor = req.headers['x-forwarded-for'];
+        if (!forwardedFor) {
+            return this.normalizeAddress(remoteAddress);
+        }
+
+        const chain = this.parseForwardedHeader(forwardedFor);
+        chain.push(remoteAddress);
+
+        for (let index = chain.length - 1; index >= 0; index -= 1) {
+            const address = chain[index];
+            if (!this.isTrustedProxy(address)) {
+                return this.normalizeAddress(address);
+            }
+        }
+
+        return this.normalizeAddress(chain[0] ?? remoteAddress);
     }
 
     private normalizeTrustedHost(hostHeader: string | undefined): string | null {
@@ -350,13 +414,67 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         return null;
     }
 
-    private matchesValue(value: string, matcher: HostMatcher | HostMatcher[]): boolean {
+    private matchesValue(value: string, matcher: ValueMatcher | ValueMatcher[]): boolean {
         const matchers = Array.isArray(matcher) ? matcher : [matcher];
         return matchers.some((entry) => {
             if (typeof entry === 'string') return entry === value;
             if (entry instanceof RegExp) return entry.test(value);
             return entry(value);
         });
+    }
+
+    private configureServerTimeouts(server: HttpServer | HttpsServer): void {
+        const security = this.config.security;
+        const dev = this.isDevelopment();
+        server.headersTimeout = security?.headersTimeoutMs ?? 30_000;
+        server.requestTimeout = security?.requestTimeoutMs ?? (dev ? 0 : 60_000);
+        server.keepAliveTimeout = security?.keepAliveTimeoutMs ?? 5_000;
+    }
+
+    private isDevelopment(): boolean {
+        return process.env.NODE_ENV !== 'production';
+    }
+
+    private getTrustedForwardedHeader(req: IncomingMessage, header: 'x-forwarded-proto' | 'x-forwarded-host'): string | undefined {
+        if (!this.isTrustedProxy(req.socket.remoteAddress ?? '')) {
+            return undefined;
+        }
+
+        const value = req.headers[header];
+        if (Array.isArray(value)) {
+            return value[0];
+        }
+
+        return value;
+    }
+
+    private isTrustedProxy(address: string): boolean {
+        const trustedProxies = this.config.security?.trustedProxies;
+        if (!trustedProxies) return false;
+
+        const normalized = this.normalizeAddress(address);
+        if (normalized !== address && this.matchesValue(normalized, trustedProxies)) {
+            return true;
+        }
+
+        return this.matchesValue(address, trustedProxies);
+    }
+
+    private normalizeAddress(address: string): string {
+        if (address.startsWith('::ffff:')) {
+            return address.slice('::ffff:'.length);
+        }
+
+        return address;
+    }
+
+    private parseForwardedHeader(value: string | string[]): string[] {
+        const combined = Array.isArray(value) ? value.join(',') : value;
+
+        return combined
+            .split(',')
+            .map((part) => this.normalizeAddress(part.trim()))
+            .filter(Boolean);
     }
 
     private toHeaders(headers: IncomingMessage['headers']): Headers {
@@ -580,7 +698,10 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         const cookies = new Cookies(request, utils.pushSetCookie);
         const handlers = this.config;
         const locals: App.Locals = {} as App.Locals;
-        const platform: App.Platform | Record<string, any> = {name: 'WebHTTPServer'};
+        const platform: App.Platform | Record<string, any> = {
+            name: 'node-webserver',
+            dev: this.isDevelopment()
+        };
         const setHeadersState = new Set<string>();
 
         const event: RequestEvent<{}> = {
@@ -592,7 +713,7 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
                 return locals;
             },
             get platform(): App.Platform | undefined {
-                return platform;
+                return platform as App.Platform | undefined;
             },
             fetch: async (input: RequestInfo | URL, init?: RequestInit) => eventFetch(input, init),
             params: {},

@@ -14,7 +14,7 @@ It provides:
 - Router lifecycle hooks with `pre()` and `post()`
 - WebSocket routing
 - Cookie helpers
-- Built-in CORS and rate limiting middleware
+- Built-in middleware for CORS, rate limiting, security headers, request IDs, and timeouts
 - Safer defaults for host handling and WebSocket upgrade validation
 
 ## Installation
@@ -176,6 +176,8 @@ app.GET("/events", sse((event, emit) => {
 
 Objects are serialized as JSON automatically. Strings are sent as plain `data:` lines.
 
+If the callback finishes without returning cleanup, the SSE stream closes automatically. If it returns a cleanup function, the stream stays open until the client disconnects or the stream is canceled.
+
 ## Request Handling
 
 Route handlers receive a web-standard `Request` plus extra routing data:
@@ -267,6 +269,89 @@ app.useMiddleware(async (event, next) => {
   nextResponse.headers.set("x-response-time", String(Date.now() - startedAt));
   return nextResponse;
 });
+```
+
+## Built-in Middleware
+
+The library exports built-in middleware namespaces from `@sourceregistry/node-webserver`:
+
+- `CORS`
+- `RateLimiter`
+- `RequestId`
+- `Security`
+- `Timeout`
+
+### Security headers
+
+Use `Security.headers()` to apply a small set of secure defaults without overwriting headers your route already sets.
+
+```ts
+import { Security } from "@sourceregistry/node-webserver";
+
+app.useMiddleware(Security.headers());
+```
+
+By default it adds:
+
+- `Content-Security-Policy`
+- `X-Frame-Options`
+- `Referrer-Policy`
+- `Permissions-Policy`
+- `Cross-Origin-Opener-Policy`
+- `Cross-Origin-Resource-Policy`
+
+You can disable or override individual headers:
+
+```ts
+app.useMiddleware(Security.headers({
+  contentSecurityPolicy: false,
+  frameOptions: "SAMEORIGIN",
+  strictTransportSecurity: "max-age=31536000; includeSubDomains"
+}));
+```
+
+### Request IDs
+
+Use `RequestId.assign()` to accept or generate a request ID, expose it through `event.locals.requestId`, and add it to the response.
+
+```ts
+import { RequestId } from "@sourceregistry/node-webserver";
+
+app.useMiddleware(RequestId.assign());
+```
+
+You can customize the header name or generator:
+
+```ts
+app.useMiddleware(RequestId.assign({
+  headerName: "x-correlation-id",
+  generate: () => crypto.randomUUID()
+}));
+```
+
+### Timeouts
+
+Use `Timeout.deadline()` to return a fallback response when a route takes too long.
+
+```ts
+import { Timeout } from "@sourceregistry/node-webserver";
+
+app.useMiddleware(Timeout.deadline({
+  ms: 5000
+}));
+```
+
+You can customize the response and add a timeout hook:
+
+```ts
+app.useMiddleware(Timeout.deadline({
+  ms: 2000,
+  status: 503,
+  body: "Request timed out",
+  onTimeout: () => {
+    console.warn("request exceeded deadline");
+  }
+}));
 ```
 
 Route-specific middleware:
@@ -434,7 +519,12 @@ const app = new WebServer({
   options: {},
   security: {
     maxRequestBodySize: 1024 * 1024,
+    headersTimeoutMs: 30_000,
+    requestTimeoutMs: 60_000,
+    keepAliveTimeoutMs: 5_000,
     maxWebSocketPayload: 64 * 1024,
+    trustedProxies: ["127.0.0.1"],
+    trustHostHeader: true,
     allowedWebSocketOrigins: [
       "https://app.example.com",
       "https://admin.example.com"
@@ -447,13 +537,25 @@ Available options:
 
 - `trustHostHeader`
 - `allowedHosts`
+- `trustedProxies`
 - `allowedWebSocketOrigins`
 - `maxRequestBodySize`
+- `headersTimeoutMs`
+- `requestTimeoutMs`
+- `keepAliveTimeoutMs`
 - `maxWebSocketPayload`
 
 `trustHostHeader` defaults to `false`. That is the safer default for public-facing services unless you are explicitly validating proxy behavior.
 
-## Built-in Middleware
+`trustedProxies` is also disabled by default. When configured, the server will trust `X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` only when the direct peer matches one of the configured values.
+
+For public-facing services, the server now also applies conservative timeout defaults unless you override them:
+
+- `headersTimeoutMs`: `30000`
+- `requestTimeoutMs`: `60000`
+- `keepAliveTimeoutMs`: `5000`
+
+### Middleware examples
 
 ### CORS
 
@@ -498,66 +600,15 @@ app.listen(3443);
 
 ## Full Example
 
-```ts
-import {
-  CORS,
-  RateLimiter,
-  WebServer,
-  json,
-  text
-} from "@sourceregistry/node-webserver";
+For a production-oriented baseline with:
 
-const app = new WebServer({
-  type: "http",
-  options: {},
-  locals: () => ({
-    startedAt: Date.now()
-  }),
-  security: {
-    maxRequestBodySize: 1024 * 1024,
-    allowedWebSocketOrigins: "https://app.example.com"
-  }
-});
+- trusted proxy handling
+- security headers
+- request IDs
+- route deadlines
+- CORS and rate limiting
 
-app.pre(async (event) => {
-  if (event.url.pathname.startsWith("/private")) {
-    const auth = event.request.headers.get("authorization");
-    if (!auth) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-  }
-});
-
-app.useMiddleware(
-  CORS.policy({
-    origin: "https://app.example.com",
-    credentials: true
-  }),
-  RateLimiter.fixedWindowLimit({
-    max: 60,
-    windowMs: 60_000
-  })
-);
-
-app.GET("/", () => text("hello"));
-
-app.GET("/users/[id]", (event) => {
-  return json({
-    id: event.params.id,
-    requestId: event.locals.startedAt
-  });
-});
-
-app.post(async (_event, response) => {
-  const nextResponse = new Response(response.body, response);
-  nextResponse.headers.set("x-server", "node-webserver");
-  return nextResponse;
-});
-
-app.listen(3000, () => {
-  console.log("server listening on port 3000");
-});
-```
+see [examples/public-baseline.ts](./examples/public-baseline.ts).
 
 ## Development
 

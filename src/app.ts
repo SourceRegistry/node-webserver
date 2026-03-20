@@ -4,6 +4,7 @@ declare global {
         }
 
         interface Platform {
+            readonly dev: boolean
         }
 
         interface Error {

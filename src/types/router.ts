@@ -400,7 +400,12 @@ export class Router<Locals extends App.Locals = App.Locals> {
             if (!match) continue;
 
             const params = Object.fromEntries(
-                route.paramNames.map((name, i) => [name, match[i + 1] || ''])
+                route.paramNames
+                    .map((name, i) => {
+                        const value = match[i + 1];
+                        return value === undefined ? undefined : [name, decodeURIComponent(value)];
+                    })
+                    .filter((entry): entry is [string, string] => entry !== undefined)
             );
 
             const enhancedEvent = {
@@ -414,7 +419,7 @@ export class Router<Locals extends App.Locals = App.Locals> {
 
 
             const result = await this.applyMiddlewaresWithList(enhancedEvent, allMiddlewares, () => route.handler(enhancedEvent));
-            if (result === undefined) {
+            if (result !== undefined) {
                 return true;
             }
         }
@@ -607,10 +612,16 @@ export class Router<Locals extends App.Locals = App.Locals> {
 
         const params: Record<string, string> = {};
         if (nested.isCatchAll && nested.paramNames.length === 1) {
-            params[nested.paramNames[0]] = match[1]?.replace(/^\//, '') || '';
+            const value = match[1]?.replace(/^\//, '');
+            if (value !== undefined) {
+                params[nested.paramNames[0]] = decodeURIComponent(value);
+            }
         } else {
             nested.paramNames.forEach((name, i) => {
-                params[name] = match[i + 1] || '';
+                const value = match[i + 1];
+                if (value !== undefined) {
+                    params[name] = decodeURIComponent(value);
+                }
             });
         }
         return params;
@@ -663,7 +674,12 @@ export class Router<Locals extends App.Locals = App.Locals> {
             if (!match) continue;
 
             const params = Object.fromEntries(
-                route.paramNames.map((name, i) => [name, match[i + 1] || ''])
+                route.paramNames
+                    .map((name, i) => {
+                        const value = match[i + 1];
+                        return value === undefined ? undefined : [name, decodeURIComponent(value)];
+                    })
+                    .filter((entry): entry is [string, string] => entry !== undefined)
             );
 
             event.params = {...event.params, ...params};
@@ -722,9 +738,6 @@ export class Router<Locals extends App.Locals = App.Locals> {
         return Action.error(500, {message: 'Internal Server Error'});
     }
 
-    static New(): Router {
-        return new Router();
-    }
 }
 
 // Action utilities

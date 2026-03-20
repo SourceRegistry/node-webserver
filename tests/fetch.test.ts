@@ -181,4 +181,43 @@ describe("event.fetch", () => {
 
         expect(innerAborted).toBe(true);
     });
+
+    it("inherits headers when called with a Request object", async () => {
+        const server = new WebServer();
+
+        server.GET("/inner", (event) => json({
+            cookie: event.request.headers.get("cookie"),
+            authorization: event.request.headers.get("authorization"),
+            custom: event.request.headers.get("x-custom")
+        }));
+
+        server.GET("/outer", async (event) => {
+            const request = new Request(new URL("/inner", event.url), {
+                headers: {
+                    "x-custom": "set"
+                }
+            });
+            const response = await event.fetch(request);
+
+            return new Response(await response.text(), {
+                headers: {
+                    "content-type": "application/json"
+                }
+            });
+        });
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/outer`, {
+            headers: {
+                cookie: "session=abc",
+                authorization: "Bearer token"
+            }
+        });
+
+        expect(await response.json()).toEqual({
+            cookie: "session=abc",
+            authorization: "Bearer token",
+            custom: "set"
+        });
+    });
 });

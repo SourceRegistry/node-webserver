@@ -14,14 +14,35 @@ export interface Options {
      * @default crypto.randomUUID
      */
     generate?: () => string;
+
+    /**
+     * Enable client request ID handling
+     * When enabled, checks for X-Client-Request-Id header, validates it contains only ASCII characters and is no more than 512 characters,
+     * and uses it if valid. Invalid headers are logged and ignored, falling back to the standard request ID.
+     * @default false
+     */
+    clientRequestId?: boolean;
 }
 
 export function assign(options: Options = {}): Middleware<string, {requestId: string}> {
     const headerName = options.headerName?.toLowerCase() ?? "x-request-id";
     const generate = options.generate ?? randomUUID;
+    const clientRequestId = options.clientRequestId ?? false;
 
     return async (event, next) => {
-        const requestId = event.request.headers.get(headerName) ?? generate();
+        let requestId = event.request.headers.get(headerName) ?? generate();
+
+        if (clientRequestId) {
+            const clientRequestIdHeader = event.request.headers.get("x-client-request-id");
+            if (clientRequestIdHeader !== null) {
+                if (!isAscii(clientRequestIdHeader) || clientRequestIdHeader.length > 512) {
+                    console.warn("Invalid X-Client-Request-Id header received");
+                } else {
+                    requestId = clientRequestIdHeader;
+                }
+            }
+        }
+
         Object.assign(event.locals, {requestId});
 
         const response = await next();
@@ -40,4 +61,8 @@ export function assign(options: Options = {}): Middleware<string, {requestId: st
             headers
         });
     };
+}
+
+function isAscii(str: string): boolean {
+    return /^[\x00-\x7F]*$/.test(str);
 }

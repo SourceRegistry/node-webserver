@@ -571,6 +571,10 @@ app.useMiddleware(CORS.policy({
 
 ### Rate Limiting
 
+The library provides two rate limiter algorithms:
+
+#### Fixed Window (default)
+
 ```ts
 import { RateLimiter } from "@sourceregistry/node-webserver";
 
@@ -578,6 +582,47 @@ app.useMiddleware(RateLimiter.fixedWindowLimit({
   windowMs: 60_000,
   max: 100
 }));
+```
+
+#### Sliding Window
+
+More accurate than fixed window as it tracks individual request timestamps. Uses more memory but avoids the "cliff" effect where all requests at the end of one window and start of next are counted together.
+
+```ts
+import { RateLimiter } from "@sourceregistry/node-webserver";
+
+app.useMiddleware(RateLimiter.slidingWindowLimit({
+  windowMs: 60_000,
+  max: 100
+}));
+```
+
+Both limiters support the same options:
+
+- `windowMs`: Window duration in milliseconds (default: 60_000)
+- `max`: Maximum requests per window
+- `key`: Function to generate key (default: IP address)
+- `message`: Custom error message
+- `statusCode`: HTTP status code (default: 429)
+- `headers`: Include or remove rate limit headers (default: 'include')
+- `onRateLimit`: Callback when rate limit is hit
+- `store`: Custom storage backend
+
+The `onRateLimit` callback receives additional metadata:
+
+```ts
+RateLimiter.fixedWindowLimit({
+  max: 300,
+  windowMs: 60_000,
+  onRateLimit: (event, info) => {
+    event.setHeaders({
+      "X-RateLimit-Limit": info.max.toString(),
+      "X-RateLimit-Remaining": info.remaining.toString(),
+      "X-RateLimit-Reset": info.reset.toString(),
+      "Retry-After": Math.ceil(info.resetTimeMs / 1000).toString()
+    });
+  }
+});
 ```
 
 ## HTTPS Server

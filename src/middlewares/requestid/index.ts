@@ -18,7 +18,7 @@ export interface Options {
     /**
      * Enable client request ID handling
      * When enabled, checks for X-Client-Request-Id header, validates it contains only ASCII characters and is no more than 512 characters,
-     * and uses it if valid. Invalid headers are logged and ignored, falling back to the standard request ID.
+     * and uses it if valid. Invalid headers result in a 400 error response.
      * @default false
      */
     clientRequestId?: boolean;
@@ -36,10 +36,9 @@ export function assign(options: Options = {}): Middleware<string, {requestId: st
             const clientRequestIdHeader = event.request.headers.get("x-client-request-id");
             if (clientRequestIdHeader !== null) {
                 if (!isAscii(clientRequestIdHeader) || clientRequestIdHeader.length > 512) {
-                    console.warn("Invalid X-Client-Request-Id header received");
-                } else {
-                    requestId = clientRequestIdHeader;
+                    return new Response("Invalid X-Client-Request-Id header", {status: 400});
                 }
+                requestId = clientRequestIdHeader;
             }
         }
 

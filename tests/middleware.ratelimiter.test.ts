@@ -100,4 +100,33 @@ describe("rate limiter memory store", () => {
 
         store.stop();
     });
+
+    it("rejects invalid rate limit keys", async () => {
+        const middleware = fixedWindowLimit({
+            max: 10,
+            key: () => "invalid key with spaces"
+        });
+
+        const event = {
+            getClientAddress: () => "127.0.0.1",
+            setHeaders: () => {}
+        } as any;
+
+        await expect(middleware(event, async () => new Response("ok"))).rejects.toThrow(/Invalid rate limit key/i);
+    });
+
+    it("accepts valid rate limit keys with allowed characters", async () => {
+        const middleware = fixedWindowLimit({
+            max: 10,
+            key: () => "user-123.session_456"
+        });
+
+        const event = {
+            getClientAddress: () => "127.0.0.1",
+            setHeaders: () => {}
+        } as any;
+
+        const response = await middleware(event, async () => new Response("ok"));
+        expect(response?.status).toBe(200);
+    });
 });

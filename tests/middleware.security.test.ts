@@ -46,3 +46,45 @@ describe("security headers middleware", () => {
         expect(response.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains");
     });
 });
+
+describe("security configuration", () => {
+    it("validates X-Forwarded-For headers and rejects invalid IPs", async () => {
+        const server = new WebServer({
+            type: "http",
+            options: {},
+            security: {
+                trustedProxies: [/127\.0\.0\.1/]
+            }
+        });
+        server.GET("/", (event) => new Response(event.getClientAddress()));
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/`, {
+            headers: {
+                "X-Forwarded-For": "192.168.1.1, invalid_ip, 10.0.0.1"
+            }
+        });
+
+        expect(await response.text()).toBe("10.0.0.1");
+    });
+
+    it("filters out malformed IPv6 addresses from X-Forwarded-For", async () => {
+        const server = new WebServer({
+            type: "http",
+            options: {},
+            security: {
+                trustedProxies: [/127\.0\.0\.1/]
+            }
+        });
+        server.GET("/", (event) => new Response(event.getClientAddress()));
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/`, {
+            headers: {
+                "X-Forwarded-For": "2001:db8::1, invalid:::ipv6, ::ffff:192.0.2.1"
+            }
+        });
+
+        expect(await response.text()).toBe("192.0.2.1");
+    });
+});

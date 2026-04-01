@@ -760,6 +760,24 @@ describe("sse helper", () => {
 
         expect(cleaned).toBe(true);
     });
+
+    it("sanitizes SSE comments by replacing newlines with spaces", async () => {
+        const server = new WebServer();
+
+        server.GET("/events", sse((_event, emit) => {
+            emit("test", {comment: "multi\nline\r\ncomment"});
+        }));
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/events`);
+        const reader = response.body?.getReader();
+        const chunk = await reader?.read();
+        const body = chunk?.value ? Buffer.from(chunk.value).toString("utf8") : "";
+
+        expect(body).toContain(": multi line comment");
+        expect(body).toContain("data: test");
+        expect(body).not.toContain("\n:", "\n in comment");
+    });
 });
 
 describe("stream lifecycle", () => {

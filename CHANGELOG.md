@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/SourceRegistry/node-webserver/compare/v1.4.0...v1.5.0) (2026-04-01)
+
+
+### Bug Fixes
+
+* **security:** address identified vulnerabilities ([ba72977](https://github.com/SourceRegistry/node-webserver/commit/ba729777544072fb4056aff5d69a32b77b1f014e))
+
+
+### Features
+
+* add client request ID validation option ([b2b4a10](https://github.com/SourceRegistry/node-webserver/commit/b2b4a10155fe462f1b719ad614437846f8ade9e1))
+
 # [1.4.0](https://github.com/SourceRegistry/node-webserver/compare/v1.3.1...v1.4.0) (2026-03-20)
 
 

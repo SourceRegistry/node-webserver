@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/SourceRegistry/node-webserver/compare/v1.5.0...v1.6.0) (2026-04-01)
+
+
+### Features
+
+* **ratelimiter:** add slidingWindowLimit and enhance onRateLimit callback ([0878145](https://github.com/SourceRegistry/node-webserver/commit/0878145fa64149039101f2a604da12db0ab5c657))
+
 # [1.5.0](https://github.com/SourceRegistry/node-webserver/compare/v1.4.0...v1.5.0) (2026-04-01)
 
 

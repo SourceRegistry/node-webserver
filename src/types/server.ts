@@ -378,7 +378,8 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
             return this.normalizeAddress(remoteAddress);
         }
 
-        const chain = this.parseForwardedHeader(forwardedFor);
+        const chain = this.parseForwardedHeader(forwardedFor)
+            .filter(ip => this.isValidIP(ip));
         chain.push(remoteAddress);
 
         for (let index = chain.length - 1; index >= 0; index -= 1) {
@@ -466,6 +467,20 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         }
 
         return address;
+    }
+
+    private isValidIP(ip: string): boolean {
+        if (ip.includes(':')) {
+            if (ip.includes(':::')) return false;
+            const parts = ip.split(':');
+            return parts.length <= 8 && parts.every(p => p === '' || /^[0-9a-fA-F]+$/.test(p));
+        }
+        const parts = ip.split('.');
+        return parts.length === 4 && parts.every(p => {
+            if (p === '' || p.length > 3) return false;
+            const num = parseInt(p, 10);
+            return !isNaN(num) && num >= 0 && num <= 255 && p === String(num);
+        });
     }
 
     private parseForwardedHeader(value: string | string[]): string[] {

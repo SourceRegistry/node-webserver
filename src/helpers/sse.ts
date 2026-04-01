@@ -19,9 +19,8 @@ function createSSEChunk(data?: unknown, options: SSEEmitOptions = {}): string {
     const lines: string[] = [];
 
     if (options.comment) {
-        for (const line of options.comment.split(/\r?\n/)) {
-            lines.push(`: ${line}`);
-        }
+        const sanitized = options.comment.replace(/\r/g, '').replace(/\n/g, '');
+        lines.push(`: ${sanitized}`);
     }
     if (options.event) lines.push(`event: ${options.event}`);
     if (options.id) lines.push(`id: ${options.id}`);

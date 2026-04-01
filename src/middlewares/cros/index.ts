@@ -116,7 +116,7 @@ function getAllowedOrigin(requestOrigin: string | null, options: Options): strin
     if (!requestOrigin) return origin === '*' ? '*' : null;
 
     if (origin === '*') {
-        // If wildcard, reflect the origin (but not for credentials)
+        // Wildcard: reflect origin (required for credentials, optional otherwise)
         return options.credentials ? requestOrigin : '*';
     }
 

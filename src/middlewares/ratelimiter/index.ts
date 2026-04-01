@@ -66,7 +66,11 @@ export function fixedWindowLimit(options: Options): Middleware {
     } = options;
 
     return async (event, next) => {
-        const rateLimitKey = `rl:${key(event)}`;
+        const rawKey = key(event);
+        if (typeof rawKey !== 'string' || !/^[a-zA-Z0-9_.-]+$/.test(rawKey)) {
+            throw new Error('Invalid rate limit key: only alphanumeric, underscore, dot, and hyphen allowed');
+        }
+        const rateLimitKey = `rl:${rawKey}`;
         const { current, reset } = await store.incr(rateLimitKey);
 
         const retryAfter = Math.ceil((reset - Date.now()) / 1000);

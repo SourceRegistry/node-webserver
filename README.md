@@ -1,8 +1,9 @@
 # @sourceregistry/node-webserver
 
 [![npm version](https://img.shields.io/npm/v/%40sourceregistry%2Fnode-webserver?logo=npm)](https://www.npmjs.com/package/@sourceregistry/node-webserver)
+[![JSR](https://jsr.io/badges/@sourceregistry/node-webserver)](https://jsr.io/@sourceregistry/node-webserver)
 [![License](https://img.shields.io/npm/l/%40sourceregistry%2Fnode-webserver)](./LICENSE)
-[![CI](https://github.com/SourceRegistry/node-webserver/actions/workflows/test.yml/badge.svg)](https://github.com/SourceRegistry/node-webserver/actions/workflows/test.yml)
+[![CI](https://github.com/SourceRegistry/node-webserver/actions/workflows/ci.yml/badge.svg)](https://github.com/SourceRegistry/node-webserver/actions/workflows/ci.yml)
 
 TypeScript web server for Node.js built around the web platform `Request` and `Response` APIs.
 

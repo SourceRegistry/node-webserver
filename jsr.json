@@ -3,11 +3,14 @@
   "name": "@sourceregistry/node-webserver",
   "version": "1.6.3",
   "exports": {
-    ".": "./dist/index.es.js"
+    ".": "./jsr/index.js"
   },
   "publish": {
     "include": [
+      "jsr/**/*.js",
+      "jsr/**/*.d.ts",
       "dist/**/*.js",
+      "dist/**/*.d.ts",
       "README.md",
       "LICENSE"
     ],

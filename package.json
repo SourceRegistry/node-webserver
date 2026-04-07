@@ -23,8 +23,9 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc && vite build && npm run build:jsr-types",
+    "build": "tsc && vite build && npm run build:jsr-package",
     "build:jsr-types": "node scripts/build-jsr-types.mjs",
+    "build:jsr-package": "npm run build:jsr-types && node scripts/build-jsr-package.mjs",
     "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
@@ -64,6 +65,7 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@sourceregistry/semantic-release-jsr": "^1.1.1",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
@@ -90,7 +92,14 @@
       "@semantic-release/release-notes-generator",
       "@semantic-release/changelog",
       "@semantic-release/npm",
-      "./scripts/semantic-release-jsr.mjs",
+      [
+        "@sourceregistry/semantic-release-jsr",
+        {
+          "pkgRoot": "generated/jsr-publish",
+          "configFile": "jsr.json",
+          "allowSlowTypes": true
+        }
+      ],
       [
         "@semantic-release/git",
         {

@@ -1,3 +1,11 @@
+## [1.6.2](https://github.com/SourceRegistry/node-webserver/compare/v1.6.1...v1.6.2) (2026-04-07)
+
+
+### Bug Fixes
+
+* **release:** fix alignment with ci ([d01fc92](https://github.com/SourceRegistry/node-webserver/commit/d01fc926a28010ec9d520ac9268926747eac8efe))
+* **release:** publish jsr with global app typings ([22e6518](https://github.com/SourceRegistry/node-webserver/commit/22e65180930dae84683d2e23992c5e64359cba75))
+
 ## [1.6.1](https://github.com/SourceRegistry/node-webserver/compare/v1.6.0...v1.6.1) (2026-04-07)
 
 

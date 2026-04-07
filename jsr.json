@@ -3,13 +3,16 @@
   "name": "@sourceregistry/node-webserver",
   "version": "1.6.3",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.es.js"
   },
   "publish": {
     "include": [
-      "src/**/*.ts",
+      "dist/**/*.js",
       "README.md",
       "LICENSE"
+    ],
+    "exclude": [
+      "!dist"
     ]
   }
 }

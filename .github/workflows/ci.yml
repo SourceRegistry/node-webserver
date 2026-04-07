@@ -56,8 +56,6 @@ jobs:
           registry-url: "https://registry.npmjs.org/"
       - name: Install dependencies
         run: npm install
-      - name: Verify JSR CLI
-        run: npx jsr --version
       - name: Restore tracked files
         run: git restore .
       - name: Build the package

@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/SourceRegistry/node-webserver/compare/v1.6.0...v1.6.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* **release:** unify ci and jsr publishing ([4dae7c5](https://github.com/SourceRegistry/node-webserver/commit/4dae7c5b7d5256ea9fa50aa70cccb2f1d4fa15c4))
+
 # [1.6.0](https://github.com/SourceRegistry/node-webserver/compare/v1.5.0...v1.6.0) (2026-04-01)
 
 

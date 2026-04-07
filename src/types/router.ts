@@ -630,6 +630,7 @@ export class Router<Locals extends App.Locals = App.Locals> {
     // FIXED: Nested router handling without duplicate middleware application
     private async handleNestedRouters(event: RequestEvent, path: string): Promise<Response | null> {
         const sorted = [...this._nestedRouters].sort((a, b) => b.priority - a.priority);
+        const method = event.request.method as RequestMethod;
 
         for (const nested of sorted) {
             const match = path.match(nested.regex);
@@ -637,6 +638,7 @@ export class Router<Locals extends App.Locals = App.Locals> {
 
             const matched = match[0];
             const remaining = path.slice(matched.length) || '/';
+            if (!nested.router.hasHttpMatchAtPath(method, remaining)) continue;
             const prefixParams = this.extractPrefixParams(nested, matched);
 
             const nestedEvent: RequestEvent = {
@@ -652,6 +654,41 @@ export class Router<Locals extends App.Locals = App.Locals> {
         }
 
         return null;
+    }
+
+    private hasHttpMatchAtPath(method: RequestMethod, path: string): boolean {
+        if (this.hasLocalPathMatch(path, method)) {
+            return true;
+        }
+
+        for (const nested of this._nestedRouters) {
+            const match = path.match(nested.regex);
+            if (!match || match.index !== 0) continue;
+
+            const matched = match[0];
+            const remaining = path.slice(matched.length) || '/';
+            if (nested.router.hasHttpMatchAtPath(method, remaining)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private hasLocalPathMatch(path: string, method: RequestMethod): boolean {
+        return this._routes.some(route => {
+            if (!route.regex.test(path)) return false;
+
+            if (method === 'HEAD') {
+                return route.method === 'HEAD' || route.method === 'GET';
+            }
+
+            if (method === 'OPTIONS') {
+                return true;
+            }
+
+            return true;
+        });
     }
 
     // FIXED: Local route handling without duplicate middleware application

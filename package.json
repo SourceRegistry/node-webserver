@@ -68,16 +68,17 @@
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/npm": "^13.1.3",
     "@semantic-release/release-notes-generator": "^14.1.0",
-    "@types/node": "^25.5.0",
-    "@vitest/coverage-v8": "^4.0.16",
-    "@vitest/ui": "^4.0.16",
-    "tsx": "^4.21.0",
-    "typedoc": "^0.28.15",
-    "typescript": "^5.9.3",
-    "vite": "^8.0.1",
-    "vite-plugin-dts": "^4.5.4",
+    "@types/node": "^25.5.2",
     "@types/ws": "^8.18.1",
-    "vitest": "^4.1.0"
+    "@vitest/coverage-v8": "^4.1.2",
+    "@vitest/ui": "^4.0.16",
+    "jsr": "^0.13.0",
+    "tsx": "^4.21.0",
+    "typedoc": "^0.28.18",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.5",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.1.2"
   },
   "release": {
     "branches": [
@@ -88,11 +89,13 @@
       "@semantic-release/release-notes-generator",
       "@semantic-release/changelog",
       "@semantic-release/npm",
+      "./scripts/semantic-release-jsr.mjs",
       [
         "@semantic-release/git",
         {
           "assets": [
             "package.json",
+            "jsr.json",
             "CHANGELOG.md"
           ],
           "message": "node-webserver(release): ${nextRelease.version}\n\n${nextRelease.notes}"

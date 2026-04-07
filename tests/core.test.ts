@@ -476,6 +476,22 @@ describe("request event behavior", () => {
 });
 
 describe("nested routers", () => {
+    it("falls through to parent routes when a root-mounted router does not match the remaining path", async () => {
+        const server = new WebServer();
+        const nested = new Router();
+
+        nested.GET("/healthz", () => new Response("ok"));
+        server.GET("/version", () => new Response("1.2.3"));
+        server.use("/", nested);
+
+        const port = await startServer(server);
+        const health = await fetch(`http://127.0.0.1:${port}/healthz`);
+        const version = await fetch(`http://127.0.0.1:${port}/version`);
+
+        expect(await health.text()).toBe("ok");
+        expect(await version.text()).toBe("1.2.3");
+    });
+
     it("preserves the original URL inside nested handlers", async () => {
         const server = new WebServer();
         const nested = new Router();

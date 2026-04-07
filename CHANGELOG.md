@@ -1,3 +1,11 @@
+## [1.6.4](https://github.com/SourceRegistry/node-webserver/compare/v1.6.3...v1.6.4) (2026-04-07)
+
+
+### Bug Fixes
+
+* **jsr:** publish compiled entrypoint ([12602b2](https://github.com/SourceRegistry/node-webserver/commit/12602b25c1fc614fc4c6ad68a05be7c797f9ea80))
+* **jsr:** publish declaration wrapper ([8f62f74](https://github.com/SourceRegistry/node-webserver/commit/8f62f745781b4b03ed01add1269696490d0444c1))
+
 ## [1.6.3](https://github.com/SourceRegistry/node-webserver/compare/v1.6.2...v1.6.3) (2026-04-07)
 
 

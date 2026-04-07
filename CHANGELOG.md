@@ -1,3 +1,11 @@
+## [1.6.5](https://github.com/SourceRegistry/node-webserver/compare/v1.6.4...v1.6.5) (2026-04-07)
+
+
+### Bug Fixes
+
+* **jsr:** generate isolated declaration graph ([6c3cf40](https://github.com/SourceRegistry/node-webserver/commit/6c3cf402ab2df5e4aab988b7d4b520f48a8947c8))
+* **jsr:** trigger isolated declaration publish ([854845c](https://github.com/SourceRegistry/node-webserver/commit/854845c527896789e90ddefea21defe20839f2ba))
+
 ## [1.6.4](https://github.com/SourceRegistry/node-webserver/compare/v1.6.3...v1.6.4) (2026-04-07)
 
 

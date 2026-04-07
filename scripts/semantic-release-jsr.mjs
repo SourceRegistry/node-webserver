@@ -38,7 +38,7 @@ export async function verifyConditions(_pluginConfig, context) {
         throw new Error("jsr.json must contain a package name.");
     }
 
-    await run("jsr", ["publish", "--dry-run", "--allow-slow-types"], context);
+    await run("jsr", ["publish", "--dry-run", "--allow-slow-types", "--allow-dirty"], context);
 }
 
 export async function prepare(_pluginConfig, {nextRelease, logger}) {
@@ -51,7 +51,7 @@ export async function prepare(_pluginConfig, {nextRelease, logger}) {
 }
 
 export async function publish(_pluginConfig, context) {
-    await run("jsr", ["publish", "--allow-slow-types"], context);
+    await run("jsr", ["publish", "--allow-slow-types", "--allow-dirty"], context);
 
     const source = await readFile(configPath, "utf8");
     const config = JSON.parse(source);

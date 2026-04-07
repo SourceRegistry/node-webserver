@@ -1,1 +1,1 @@
-export * from "../jsr-types/index";
+export * from "../generated/jsr-types/index";

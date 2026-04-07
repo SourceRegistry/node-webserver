@@ -2,7 +2,7 @@ import {mkdir, readdir, readFile, rm, stat, writeFile} from "node:fs/promises";
 import path from "node:path";
 
 const distRoot = path.resolve("dist");
-const outRoot = path.resolve("jsr-types");
+const outRoot = path.resolve("generated", "jsr-types");
 
 async function walk(dir) {
     const entries = await readdir(dir, {withFileTypes: true});

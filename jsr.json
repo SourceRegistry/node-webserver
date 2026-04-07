@@ -10,12 +10,13 @@
       "jsr/**/*.js",
       "jsr/**/*.d.ts",
       "dist/**/*.js",
-      "dist/**/*.d.ts",
+      "jsr-types/**/*.d.ts",
       "README.md",
       "LICENSE"
     ],
     "exclude": [
-      "!dist"
+      "!dist",
+      "!jsr-types"
     ]
   }
 }

@@ -1,3 +1,10 @@
+## [1.6.6](https://github.com/SourceRegistry/node-webserver/compare/v1.6.5...v1.6.6) (2026-04-07)
+
+
+### Bug Fixes
+
+* **docs:** fix badge ([40a2b0e](https://github.com/SourceRegistry/node-webserver/commit/40a2b0ee431cf3c2f642c6609e5f0dbd5cb041ef))
+
 ## [1.6.5](https://github.com/SourceRegistry/node-webserver/compare/v1.6.4...v1.6.5) (2026-04-07)
 
 

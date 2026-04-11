@@ -233,19 +233,36 @@ export class Router<Locals extends App.Locals = App.Locals> {
     }
 
     // Nested routing
+    use<InnerLocals extends App.Locals = App.Locals>(router: Router<InnerLocals>, ...middlewares: Middleware<string>[]): Router<Locals & InnerLocals>;
+    use<InnerLocals extends App.Locals = App.Locals>(input: readonly [Router<InnerLocals>, ...Middleware<string>[]]): Router<Locals & InnerLocals>;
     use<Prefix extends string, InnerLocals extends App.Locals = App.Locals>(input: readonly [Prefix, Router<InnerLocals>, ...Middleware<Prefix>[]]): Router<Locals & InnerLocals>;
     use<Prefix extends string, InnerLocals extends App.Locals = App.Locals>(prefix: Prefix, router: Router<InnerLocals>, ...middlewares: Middleware<Prefix>[]): Router<Locals & InnerLocals>;
-    use<Prefix extends string, InnerLocals extends App.Locals = App.Locals>(arg1: string | readonly [Prefix, Router<InnerLocals>, ...Middleware<Prefix>[]], arg2?: Router<InnerLocals>, ...middlewares: Middleware<Prefix>[]): Router<Locals & InnerLocals> {
-        let prefix: Prefix;
+    use<Prefix extends string, InnerLocals extends App.Locals = App.Locals>(
+        arg1: string | Router<InnerLocals> | readonly [Prefix, Router<InnerLocals>, ...Middleware<Prefix>[]] | readonly [Router<InnerLocals>, ...Middleware<string>[]],
+        arg2?: Router<InnerLocals> | Middleware<string>,
+        ...middlewares: Middleware<Prefix>[]
+    ): Router<Locals & InnerLocals> {
+        let prefix = "/" as Prefix;
         let router: Router<InnerLocals>;
         let finalMiddlewares: Middleware<Prefix>[] = middlewares;
 
         if (Array.isArray(arg1)) {
-            [prefix, router] = arg1;
-            finalMiddlewares = arg1.length > 2 ? arg1.slice(2) as Middleware<Prefix>[] : [];
+            const [first, second, ...rest] = arg1;
+
+            if (first instanceof Router) {
+                router = first;
+                finalMiddlewares = rest as Middleware<Prefix>[];
+            } else {
+                prefix = first;
+                router = second as Router<InnerLocals>;
+                finalMiddlewares = rest as Middleware<Prefix>[];
+            }
+        } else if (arg1 instanceof Router) {
+            router = arg1;
+            finalMiddlewares = (arg2 ? [arg2, ...middlewares] : middlewares) as Middleware<Prefix>[];
         } else {
             prefix = arg1 as Prefix;
-            router = arg2!;
+            router = arg2 as Router<InnerLocals>;
         }
 
         const normalizedPrefix = this.normalizePrefix(prefix);

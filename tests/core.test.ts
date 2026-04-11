@@ -492,6 +492,35 @@ describe("nested routers", () => {
         expect(await version.text()).toBe("1.2.3");
     });
 
+    it("mounts a nested router at root when no prefix is provided", async () => {
+        const server = new WebServer();
+        const nested = new Router();
+
+        nested.GET("/", () => new Response("ok"));
+        server.use(nested);
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/`);
+
+        expect(await response.text()).toBe("ok");
+    });
+
+    it("runs mount middleware for routers mounted at root without a prefix", async () => {
+        const server = new WebServer();
+        const nested = new Router();
+
+        nested.GET("/", (event) => new Response(String((event.locals as {seen?: boolean}).seen)));
+        server.use(nested, async (event, next) => {
+            Object.assign(event.locals, {seen: true});
+            return next();
+        });
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/`);
+
+        expect(await response.text()).toBe("true");
+    });
+
     it("preserves the original URL inside nested handlers", async () => {
         const server = new WebServer();
         const nested = new Router();

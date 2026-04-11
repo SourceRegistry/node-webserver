@@ -108,6 +108,7 @@ const api = new Router();
 api.GET("/status", () => new Response("ok"));
 
 app.use("/api", api);
+app.use(api);
 ```
 
 ### Response helpers

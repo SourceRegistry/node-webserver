@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/SourceRegistry/node-webserver/compare/v1.6.6...v1.7.0) (2026-04-11)
+
+
+### Features
+
+* **router:** allow mounting nested routers without prefix ([4ba1341](https://github.com/SourceRegistry/node-webserver/commit/4ba134190af2f9ccbccd54f7f8e79d25974069df))
+
 ## [1.6.6](https://github.com/SourceRegistry/node-webserver/compare/v1.6.5...v1.6.6) (2026-04-07)
 
 

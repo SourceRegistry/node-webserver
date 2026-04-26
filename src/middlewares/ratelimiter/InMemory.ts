@@ -34,6 +34,7 @@ export class MemoryStore implements RateLimitStore {
                 }
             }
         }, Math.min(this.windowMs, 300_000)); // Max 5 min interval
+        this.cleanupInterval?.unref()
     }
 
     stop() {

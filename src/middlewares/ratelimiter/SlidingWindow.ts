@@ -39,6 +39,8 @@ export class SlidingWindowStore implements RateLimitStore {
                 }
             }
         }, Math.min(this.windowMs, 300_000));
+        this.cleanupInterval.unref()
+
     }
 
     stop() {

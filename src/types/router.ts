@@ -289,6 +289,17 @@ export class Router<Locals extends App.Locals = App.Locals> {
         return this as unknown as Router<Locals & NewLocals>;
     }
 
+    /**
+     * @see useMiddleware
+     * @param mw
+     */
+    middleware<NewLocals extends App.Locals = App.Locals>(
+        ...mw: Middleware<string, NewLocals>[]
+    ): Router<Locals & NewLocals> {
+        this._middlewares.push(...mw);
+        return this as unknown as Router<Locals & NewLocals>;
+    }
+
     pre(...handlers: PreHandler<Locals>[]): Router<Locals> {
         this._preHandlers.push(...handlers);
         return this;

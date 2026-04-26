@@ -1,3 +1,11 @@
+## [1.7.2](https://github.com/SourceRegistry/node-webserver/compare/v1.7.1...v1.7.2) (2026-04-26)
+
+
+### Bug Fixes
+
+* add keep-alive message to sse helper ([52338e7](https://github.com/SourceRegistry/node-webserver/commit/52338e7d8abd75d79ee1265aad31604522ed1edc))
+* export of sse types ([d798c4a](https://github.com/SourceRegistry/node-webserver/commit/d798c4a1b69045dbddbc3138aa990f7e7755edcc))
+
 ## [1.7.1](https://github.com/SourceRegistry/node-webserver/compare/v1.7.0...v1.7.1) (2026-04-26)
 
 

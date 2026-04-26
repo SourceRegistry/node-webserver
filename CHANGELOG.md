@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/SourceRegistry/node-webserver/compare/v1.7.0...v1.7.1) (2026-04-26)
+
+
+### Bug Fixes
+
+* unref rate limiter timers ([b7ea98e](https://github.com/SourceRegistry/node-webserver/commit/b7ea98edac758c3defaaedc3804b64c4bb9277bb))
+
 # [1.7.0](https://github.com/SourceRegistry/node-webserver/compare/v1.6.6...v1.7.0) (2026-04-11)
 
 

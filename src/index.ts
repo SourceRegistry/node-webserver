@@ -63,4 +63,5 @@ export const html = async (html: MaybePromise<string>, init?: ResponseInit) => {
 
 export {default as dir} from "./helpers/static"
 
-export {default as sse, SSEOptions, SSEHandler, SSEEmit, SSEEmitOptions} from "./helpers/sse"
+export {default as sse} from "./helpers/sse"
+export type {SSEOptions, SSEHandler, SSEEmit, SSEEmitOptions} from "./helpers/sse"

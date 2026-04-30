@@ -1,3 +1,10 @@
+## [1.7.3](https://github.com/SourceRegistry/node-webserver/compare/v1.7.2...v1.7.3) (2026-04-30)
+
+
+### Bug Fixes
+
+* export cookies types ([4b88131](https://github.com/SourceRegistry/node-webserver/commit/4b8813131b85eecfdd3c440a7ec5a91827effd90))
+
 ## [1.7.2](https://github.com/SourceRegistry/node-webserver/compare/v1.7.1...v1.7.2) (2026-04-26)
 
 

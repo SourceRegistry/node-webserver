@@ -16,7 +16,7 @@ export class Cookies {
     getAll(opts?: ParseOptions): { name: string; value: string }[] {
         return Object.entries(parse(this.raw, opts))
             .filter(([, v]) => v !== undefined)
-            .map(([name, value]) => ({name, value})) as {name: string, value: string}[];
+            .map(([name, value]) => ({name, value})) as { name: string, value: string }[];
     }
 
     set(name: string, value: string, opts: SerializeOptions & { path: string }): void {
@@ -27,3 +27,5 @@ export class Cookies {
         this.set(name, '', {...opts, maxAge: 0});
     }
 }
+
+export type {SerializeOptions} from 'cookie';

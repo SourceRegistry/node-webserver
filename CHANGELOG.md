@@ -1,3 +1,10 @@
+## [1.7.5](https://github.com/SourceRegistry/node-webserver/compare/v1.7.4...v1.7.5) (2026-05-16)
+
+
+### Bug Fixes
+
+* added enhance also for WS handlers and added right typing to EventEnhancer also in WS context ([60cf05a](https://github.com/SourceRegistry/node-webserver/commit/60cf05a260560f8471481794342484a61816a4b2))
+
 ## [1.7.4](https://github.com/SourceRegistry/node-webserver/compare/v1.7.3...v1.7.4) (2026-05-16)
 
 

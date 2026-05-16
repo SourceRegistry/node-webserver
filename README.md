@@ -413,6 +413,45 @@ app.GET("/admin", enhance(
 ));
 ```
 
+### Typed enhancers
+
+You can define reusable enhancers with the `EventEnhancer` type. The fifth type parameter (`TExtra`) controls whether the enhancer receives extra event properties like `websocket`.
+
+Without WebSocket — works in any HTTP route:
+
+```ts
+import type { EventEnhancer } from "@sourceregistry/node-webserver";
+
+const withAuth: EventEnhancer<any, any, App.Locals, { user: { id: string; role: string } }> = async (event) => {
+  const token = event.request.headers.get("authorization");
+  if (!token) error(401, { message: "Unauthorized" });
+  return { user: await verifyToken(token) };
+};
+```
+
+With WebSocket — only usable in `router.WS()` routes:
+
+```ts
+import type { EventEnhancer } from "@sourceregistry/node-webserver";
+import type { WebSocket } from "ws";
+
+const withWsAuth: EventEnhancer<any, any, App.Locals, { user: { id: string } }, { websocket: WebSocket }> = async (event) => {
+  // event.websocket is available here
+  const token = event.request.headers.get("authorization");
+  if (!token) error(401, { message: "Unauthorized" });
+  return { user: await verifyToken(token) };
+};
+
+router.WS("/ws/chat", enhance(
+  async ({ context, websocket }) => {
+    websocket.send(`hello ${context.user.id}`);
+  },
+  withWsAuth
+));
+```
+
+Plain HTTP enhancers (`TExtra = {}`) can still be passed to a WS `enhance()` call — they just won't have access to `websocket`.
+
 ## Router Lifecycle Hooks
 
 Use `pre()` for logic that should run before route resolution, and `post()` for logic that should run after a response has been produced.
@@ -485,6 +524,32 @@ app.WS("/ws/chat/[room]", async (event) => {
   });
 });
 ```
+
+`enhance()` works with WebSocket handlers too. When your handler includes `websocket` in the event type, the returned function requires it automatically:
+
+```ts
+import { enhance, error } from "@sourceregistry/node-webserver";
+
+app.WS("/ws/chat/[room]", enhance(
+  async ({ context, params, websocket }) => {
+    websocket.send(`joined:${params.room} as ${context.user.id}`);
+
+    websocket.on("message", (message) => {
+      websocket.send(`echo:${message.toString()}`);
+    });
+  },
+  async (event) => {
+    const token = event.request.headers.get("authorization");
+    if (!token) {
+      error(401, { message: "Unauthorized" });
+    }
+
+    return { user: { id: "u_1", role: "member" } };
+  }
+));
+```
+
+If an enhancer returns a `Response` (or throws via `error()`), the WebSocket handler is skipped and the connection closes.
 
 ## Static Files
 

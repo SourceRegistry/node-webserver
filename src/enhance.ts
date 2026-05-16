@@ -17,9 +17,10 @@ export type EventEnhancer<
     Params extends Partial<Record<string, string>> = Partial<Record<string, string>>,
     RouteId extends string | null = string | null,
     Locals extends App.Locals = App.Locals,
-    Context extends Record<string, any> = Record<string, any>
+    Context extends Record<string, any> = Record<string, any>,
+    TExtra extends object = {}
 > = (
-    event: RequestEvent<Params, RouteId, Locals>
+    event: RequestEvent<Params, RouteId, Locals> & TExtra
 ) => MaybePromise<Context | void | undefined | Response>;
 
 export type EnhancedRequestEvent<
@@ -53,10 +54,10 @@ export const enhance = <
     Params extends Partial<Record<string, string>> = Partial<Record<string, string>>,
     RouteId extends string | null = string | null,
     Locals extends App.Locals = App.Locals,
-    Enhancers extends EventEnhancer<Params, RouteId, Locals, any>[] = EventEnhancer<Params, RouteId, Locals, any>[],
-    Context extends Awaited<ConcatReturnTypes<Enhancers>> = Awaited<ConcatReturnTypes<Enhancers>>,
     TExtra extends object = {},
-    TReturn = unknown
+    TReturn = unknown,
+    Enhancers extends EventEnhancer<Params, RouteId, Locals, any, TExtra>[] = EventEnhancer<Params, RouteId, Locals, any, TExtra>[],
+    Context extends Awaited<ConcatReturnTypes<Enhancers>> = Awaited<ConcatReturnTypes<Enhancers>>
 >(
     handler: (event: EnhancedRequestEvent<Params, RouteId, Locals, Context> & TExtra) => MaybePromise<TReturn>,
     ...enhancers: Enhancers

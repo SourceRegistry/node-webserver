@@ -7,6 +7,10 @@ server.pre(({request}) => console.log(`[${request.method}] ${request.url}`));
 
 server.GET('/', enhance(({context: {enhanced}}) => text(`Hello ${enhanced ? "enhanced" : "normal"} world!`), () => ({enhanced: true})))
 
+server.WS('/', enhance(({context, websocket}) => {
+    websocket.send(JSON.stringify(context));
+}, () => ({enhanced: true})))
+
 server.listen(3000, () => {
     console.log("Server listening on port 3000");
 })

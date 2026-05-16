@@ -1,6 +1,7 @@
 import type {RequestEvent} from "./types";
 import type {MaybePromise} from "./types/MaybePromise";
 import {isResponse} from "./utils";
+import type {WebSocket} from "ws";
 
 type AnyFn = (...args: any[]) => any;
 
@@ -39,17 +40,28 @@ export type EnhancedRouteHandler<
     event: EnhancedRequestEvent<Params, RouteId, Locals, Context>
 ) => MaybePromise<Response>;
 
+export type EnhancedWebSocketHandler<
+    Params extends Partial<Record<string, string>> = Partial<Record<string, string>>,
+    RouteId extends string | null = string | null,
+    Locals extends App.Locals = App.Locals,
+    Context extends Record<string, any> = Record<string, any>
+> = (
+    event: EnhancedRequestEvent<Params, RouteId, Locals, Context> & { websocket: WebSocket }
+) => MaybePromise<any>;
+
 export const enhance = <
     Params extends Partial<Record<string, string>> = Partial<Record<string, string>>,
     RouteId extends string | null = string | null,
     Locals extends App.Locals = App.Locals,
     Enhancers extends EventEnhancer<Params, RouteId, Locals, any>[] = EventEnhancer<Params, RouteId, Locals, any>[],
-    Context extends Awaited<ConcatReturnTypes<Enhancers>> = Awaited<ConcatReturnTypes<Enhancers>>
+    Context extends Awaited<ConcatReturnTypes<Enhancers>> = Awaited<ConcatReturnTypes<Enhancers>>,
+    TExtra extends object = {},
+    TReturn = unknown
 >(
-    handler: EnhancedRouteHandler<Params, RouteId, Locals, Context>,
+    handler: (event: EnhancedRequestEvent<Params, RouteId, Locals, Context> & TExtra) => MaybePromise<TReturn>,
     ...enhancers: Enhancers
 ) => {
-    return async (event: RequestEvent<Params, RouteId, Locals>): Promise<Response> => {
+    return async (event: RequestEvent<Params, RouteId, Locals> & TExtra): Promise<TReturn | Response> => {
         const context = {} as Context;
 
         for (const enhancer of enhancers) {
@@ -63,6 +75,6 @@ export const enhance = <
             }
         }
 
-        return handler(Object.assign(event, {context}));
+        return handler(Object.assign(event, {context}) as any);
     };
 };

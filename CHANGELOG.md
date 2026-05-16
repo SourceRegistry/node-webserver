@@ -1,3 +1,10 @@
+## [1.7.4](https://github.com/SourceRegistry/node-webserver/compare/v1.7.3...v1.7.4) (2026-05-16)
+
+
+### Bug Fixes
+
+* added enhance also for WS handlers ([8831685](https://github.com/SourceRegistry/node-webserver/commit/88316856b676592773ff88f545ffd965c346c4cb))
+
 ## [1.7.3](https://github.com/SourceRegistry/node-webserver/compare/v1.7.2...v1.7.3) (2026-04-30)
 
 

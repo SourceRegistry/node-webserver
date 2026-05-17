@@ -1,3 +1,10 @@
+## [1.7.6](https://github.com/SourceRegistry/node-webserver/compare/v1.7.5...v1.7.6) (2026-05-17)
+
+
+### Bug Fixes
+
+* **release:** commit package lock during release ([88f6efb](https://github.com/SourceRegistry/node-webserver/commit/88f6efb98400d15c7d35887c51d91dae185dc844))
+
 ## [1.7.5](https://github.com/SourceRegistry/node-webserver/compare/v1.7.4...v1.7.5) (2026-05-16)
 
 

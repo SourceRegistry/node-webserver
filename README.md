@@ -1,21 +1,37 @@
+<div align="center">
+
 # @sourceregistry/node-webserver
 
-[![npm version](https://img.shields.io/npm/v/%40sourceregistry%2Fnode-webserver?logo=npm)](https://www.npmjs.com/package/@sourceregistry/node-webserver)
-[![JSR](https://jsr.io/badges/@sourceregistry/node-webserver)](https://jsr.io/@sourceregistry/node-webserver)
-[![License](https://img.shields.io/npm/l/%40sourceregistry%2Fnode-webserver)](./LICENSE)
-[![CI](https://github.com/SourceRegistry/node-webserver/actions/workflows/ci.yml/badge.svg)](https://github.com/SourceRegistry/node-webserver/actions/workflows/ci.yml)
+**TypeScript web server for Node.js built on the web-standard `Request` and `Response` APIs**
 
-TypeScript web server for Node.js built around the web platform `Request` and `Response` APIs.
+[![npm version](https://img.shields.io/npm/v/@sourceregistry/node-webserver?style=flat-square&color=f96743)](https://www.npmjs.com/package/@sourceregistry/node-webserver)
+[![npm downloads](https://img.shields.io/npm/dm/@sourceregistry/node-webserver?style=flat-square)](https://www.npmjs.com/package/@sourceregistry/node-webserver)
+[![JSR](https://jsr.io/badges/@sourceregistry/node-webserver?style=flat-square)](https://jsr.io/@sourceregistry/node-webserver)
+[![license](https://img.shields.io/npm/l/@sourceregistry/node-webserver?style=flat-square)](./LICENSE)
+[![node](https://img.shields.io/node/v/@sourceregistry/node-webserver?style=flat-square&color=339933&logo=node.js&logoColor=white)](https://nodejs.org)
+[![CI](https://img.shields.io/github/actions/workflow/status/SourceRegistry/node-webserver/ci.yml?style=flat-square&label=CI)](https://github.com/SourceRegistry/node-webserver/actions/workflows/ci.yml)
+[![issues](https://img.shields.io/github/issues/SourceRegistry/node-webserver?style=flat-square)](https://github.com/SourceRegistry/node-webserver/issues)
 
-It provides:
+Typed router · Middleware · Route enhancers · WebSockets · SSE · Static files · CORS · Rate limiting · Security headers
 
-- A typed router with path params
-- Middleware support
+[Docs](https://sourceregistry.github.io/node-webserver/) · [npm](https://www.npmjs.com/package/@sourceregistry/node-webserver) · [JSR](https://jsr.io/@sourceregistry/node-webserver) · [Issues](https://github.com/SourceRegistry/node-webserver/issues)
+
+</div>
+
+---
+
+## Features
+
+- Typed router with path params and nested routers
+- Middleware with short-circuit support
 - Route enhancers for typed request-scoped context
-- Router lifecycle hooks with `pre()` and `post()`
-- WebSocket routing
+- Router lifecycle hooks — `pre()` and `post()`
+- WebSocket routing with enhancer support
+- Server-Sent Events via `sse()`
 - Cookie helpers
-- Built-in middleware for CORS, rate limiting, security headers, request IDs, and timeouts
+- Static file serving with path traversal protection
+- Built-in middleware: CORS, rate limiting, security headers, request IDs, timeouts
+- HTTPS support
 - Safer defaults for host handling and WebSocket upgrade validation
 
 ## Installation
@@ -34,15 +50,53 @@ import { WebServer, json, text } from "@sourceregistry/node-webserver";
 const app = new WebServer();
 
 app.GET("/", () => text("hello world"));
+app.GET("/health", () => json({ ok: true }));
 
-app.GET("/health", () => json({
-  ok: true
-}));
-
-app.listen(3000, () => {
-  console.log("listening on http://127.0.0.1:3000");
-});
+app.listen(3000, () => console.log("listening on http://127.0.0.1:3000"));
 ```
+
+## Overview
+
+```ts
+import {
+  WebServer, Router, enhance, json, text, html, sse,
+  CORS, RateLimiter, RequestId, Security, Timeout,
+  error, redirect
+} from "@sourceregistry/node-webserver";
+
+const app = new WebServer({
+  locals: (event) => ({ requestId: crypto.randomUUID() }),
+  security: { trustedProxies: ["127.0.0.1"], maxRequestBodySize: 1024 * 1024 }
+});
+
+// Built-in middleware
+app.useMiddleware(RequestId.assign());
+app.useMiddleware(Security.headers());
+app.useMiddleware(CORS.policy({ origin: ["https://app.example.com"], credentials: true }));
+app.useMiddleware(RateLimiter.slidingWindowLimit({ windowMs: 60_000, max: 100 }));
+app.useMiddleware(Timeout.deadline({ ms: 5000 }));
+
+// Typed route enhancers
+const withAuth = async (event) => {
+  const token = event.request.headers.get("authorization");
+  if (!token) error(401, { message: "Unauthorized" });
+  return { user: await verifyToken(token) };
+};
+
+app.GET("/me", enhance(
+  async (event) => json(event.context.user),
+  withAuth,
+));
+
+// Nested routers
+const api = new Router();
+api.GET("/status", () => json({ ok: true }));
+app.use("/api", api);
+
+app.listen(3000);
+```
+
+---
 
 ## Core Concepts
 
@@ -722,13 +776,20 @@ For a production-oriented baseline with:
 
 see [examples/public-baseline.ts](./examples/public-baseline.ts).
 
+---
+
 ## Development
 
 ```bash
-npm test
+npm test            # run tests
+npm run test:ui     # vitest UI
+npm run test:coverage
 npm run build
+npm run docs:build  # generate TypeDoc
 ```
+
+---
 
 ## License
 
-Apache-2.0. See [LICENSE](./LICENSE).
+[Apache-2.0](./LICENSE) © [Alexander Slaa](https://github.com/SourceRegistry)

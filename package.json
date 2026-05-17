@@ -105,6 +105,7 @@
         {
           "assets": [
             "package.json",
+            "package-lock.json",
             "jsr.json",
             "CHANGELOG.md"
           ],

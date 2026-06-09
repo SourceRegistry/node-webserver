@@ -29,10 +29,12 @@ export function redirect(status: 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 |
 }
 
 export function error(status: number, body: App.Error | string): never {
-    throw new Response(JSON.stringify(typeof body === "string" ? {message: body} : body), {
+    const content = JSON.stringify(typeof body === "string" ? {message: body} : body);
+    throw new Response(content, {
         status,
         headers: {
-            'content-type': 'application/json'
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(content).toString()
         }
     })
 }
@@ -42,7 +44,7 @@ export const text = async (body: MaybePromise<string>, init?: ResponseInit) => {
     return new Response(content, {
         ...init,
         headers: {
-            'content-type': 'text/plain',
+            'content-type': 'text/plain; charset=utf-8',
             'content-length': Buffer.byteLength(content).toString(),
             ...init?.headers
         }
@@ -54,7 +56,7 @@ export const html = async (html: MaybePromise<string>, init?: ResponseInit) => {
     return new Response(content, {
         ...init,
         headers: {
-            'content-type': 'text/html',
+            'content-type': 'text/html; charset=utf-8',
             'content-length': Buffer.byteLength(content).toString(),
             ...init?.headers
         }

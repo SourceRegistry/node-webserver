@@ -230,6 +230,26 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         });
     }
 
+    shutdown(timeoutMs = 5000): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.wss.close();
+            this.server.closeIdleConnections?.();
+
+            const timer = setTimeout(() => {
+                this.server.closeAllConnections?.();
+            }, timeoutMs);
+
+            if (typeof timer === "object" && "unref" in timer) {
+                (timer as NodeJS.Timeout).unref();
+            }
+
+            this.server.close((err) => {
+                clearTimeout(timer);
+                err ? reject(err) : resolve();
+            });
+        });
+    }
+
     address(): string | import('net').AddressInfo | null {
         return this.server.address();
     }
@@ -247,7 +267,6 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
 
         const abortController = new AbortController();
         const abortRequest = () => abortController.abort();
-        req.once('aborted', abortRequest);
         req.once('close', abortRequest);
         res.once('close', abortRequest);
 
@@ -325,7 +344,6 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
             }
         });
 
-        req.on('aborted', () => limiter.destroy(new Error('Request aborted')));
         req.on('error', (error) => limiter.destroy(error));
         req.pipe(limiter);
         return limiter;
@@ -374,22 +392,31 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
         }
 
         const forwardedFor = req.headers['x-forwarded-for'];
-        if (!forwardedFor) {
-            return this.normalizeAddress(remoteAddress);
+        if (forwardedFor) {
+            const chain = this.parseForwardedHeader(forwardedFor)
+                .filter(ip => this.isValidIP(ip));
+            chain.push(remoteAddress);
+
+            for (let index = chain.length - 1; index >= 0; index -= 1) {
+                const address = chain[index];
+                if (!this.isTrustedProxy(address)) {
+                    return this.normalizeAddress(address);
+                }
+            }
+
+            return this.normalizeAddress(chain[0] ?? remoteAddress);
         }
 
-        const chain = this.parseForwardedHeader(forwardedFor)
-            .filter(ip => this.isValidIP(ip));
-        chain.push(remoteAddress);
-
-        for (let index = chain.length - 1; index >= 0; index -= 1) {
-            const address = chain[index];
-            if (!this.isTrustedProxy(address)) {
-                return this.normalizeAddress(address);
+        const realIp = req.headers['x-real-ip'];
+        const realIpValue = Array.isArray(realIp) ? realIp[0] : realIp;
+        if (realIpValue) {
+            const trimmed = realIpValue.trim();
+            if (this.isValidIP(trimmed)) {
+                return this.normalizeAddress(trimmed);
             }
         }
 
-        return this.normalizeAddress(chain[0] ?? remoteAddress);
+        return this.normalizeAddress(remoteAddress);
     }
 
     private normalizeTrustedHost(hostHeader: string | undefined): string | null {
@@ -553,9 +580,6 @@ export class WebServer<TServerConfig extends ServerConfig = ServerConfig> extend
             res.setHeader(key, value);
         });
 
-        if (!res.hasHeader('Server')) {
-            res.setHeader('Server', 'WebHTTPServer');
-        }
 
         if (!response.body || this.shouldOmitResponseBody(response, res.req?.method)) {
             res.end();

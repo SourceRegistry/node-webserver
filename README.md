@@ -29,8 +29,8 @@ Typed router · Middleware · Route enhancers · WebSockets · SSE · Static fil
 - WebSocket routing with enhancer support
 - Server-Sent Events via `sse()`
 - Cookie helpers
-- Static file serving with path traversal protection
-- Built-in middleware: CORS, rate limiting, security headers, request IDs, timeouts
+- Static file serving with path traversal protection, ETag caching, range requests, SPA fallback, and streaming
+- Built-in middleware: CORS, rate limiting, security headers, request IDs, timeouts, gzip/brotli compression
 - HTTPS support
 - Safer defaults for host handling and WebSocket upgrade validation
 
@@ -332,10 +332,31 @@ app.useMiddleware(async (event, next) => {
 The library exports built-in middleware namespaces from `@sourceregistry/node-webserver`:
 
 - `CORS`
+- `Compression`
 - `RateLimiter`
 - `RequestId`
 - `Security`
 - `Timeout`
+
+### Compression
+
+Use `Compression.compress()` to gzip or brotli compress text responses. Brotli is preferred when the client supports both.
+
+```ts
+import { Compression } from "@sourceregistry/node-webserver";
+
+app.useMiddleware(Compression.compress());
+```
+
+Options:
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `threshold` | `number` | `1024` | Minimum response size in bytes to compress |
+| `br` | `boolean` | `true` | Enable brotli compression |
+| `gzip` | `boolean` | `true` | Enable gzip compression |
+
+Only compressible content types are compressed (`text/*`, `application/json`, `application/javascript`, `application/xml`, `image/svg+xml`). Already-encoded responses and responses below the threshold are passed through unchanged.
 
 ### Security headers
 
@@ -628,7 +649,23 @@ app.GET("/downloads/[...path]", (event) => {
 });
 ```
 
-The helper canonicalizes and validates the requested path, rejects traversal attempts such as `../secret.txt` and encoded variants like `..%2fsecret.txt`, and verifies that symlinks cannot escape the configured root.
+Options:
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `index` | `string` | `"index.html"` | File served when the path resolves to a directory |
+| `cacheControl` | `string` | `"public, max-age=0"` | Value of the `Cache-Control` response header |
+| `dotFiles` | `"allow" \| "deny" \| "ignore"` | `"ignore"` | How to handle files starting with `.` — `ignore` returns 404, `deny` returns 403, `allow` serves them |
+| `spa` | `boolean` | `false` | When `true`, unknown paths with no file extension fall back to `index` instead of returning 404 — enables client-side routing for SPAs |
+| `headers` | `HeadersInit \| (filePath, stats) => HeadersInit` | — | Extra headers added to every file response |
+
+The helper:
+
+- Canonicalizes and validates the requested path, rejects traversal attempts such as `../secret.txt` and encoded variants like `..%2fsecret.txt`
+- Verifies that symlinks cannot escape the configured root
+- Sends `ETag` and `Last-Modified` headers and returns `304 Not Modified` when the client's `If-None-Match` or `If-Modified-Since` headers match — avoiding redundant file transfers
+- Supports `Range` requests (`206 Partial Content`) for video and audio seeking
+- Streams file content rather than buffering it in memory
 
 ## Security Options
 
@@ -668,7 +705,7 @@ Available options:
 
 `trustHostHeader` defaults to `false`. That is the safer default for public-facing services unless you are explicitly validating proxy behavior.
 
-`trustedProxies` is also disabled by default. When configured, the server will trust `X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` only when the direct peer matches one of the configured values.
+`trustedProxies` is also disabled by default. When configured, the server will trust `X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`, and `X-Real-IP` only when the direct peer matches one of the configured values. `X-Forwarded-For` takes precedence over `X-Real-IP` when both are present — nginx sets `X-Real-IP` to the direct client address, which is used as a fallback when `X-Forwarded-For` is absent.
 
 For public-facing services, the server now also applies conservative timeout defaults unless you override them:
 
@@ -763,6 +800,19 @@ const app = new WebServer({
 app.GET("/", () => new Response("secure"));
 app.listen(3443);
 ```
+
+## Graceful Shutdown
+
+Use `app.shutdown()` to stop accepting new connections, close idle keep-alive connections immediately, wait for in-flight requests to finish, and force-close any remaining connections after a timeout.
+
+```ts
+process.on("SIGTERM", async () => {
+  await app.shutdown(5000); // 5 second timeout
+  process.exit(0);
+});
+```
+
+`shutdown(timeoutMs?)` defaults to 5000 ms. Use `app.close()` if you only need to stop accepting new connections without the drain-and-timeout behavior.
 
 ## Full Example
 

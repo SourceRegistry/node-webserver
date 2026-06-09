@@ -3,7 +3,7 @@ import {request as httpRequest} from "node:http";
 import {describe, expect, it} from "vitest";
 import {WebSocket} from "ws";
 
-import {error, json, redirect, Router, sse, WebServer, text} from "../src";
+import {error, html, json, redirect, Router, sse, WebServer, text} from "../src";
 import {useServerLifecycle} from "./test-helpers";
 
 const {startServer} = useServerLifecycle();
@@ -13,6 +13,24 @@ describe("server hardening", () => {
         const response = await text("€");
 
         expect(response.headers.get("content-length")).toBe("3");
+    });
+
+    it("text() sets charset in content-type", async () => {
+        const response = await text("hello");
+
+        expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+    });
+
+    it("html() sets charset in content-type", async () => {
+        const response = await html("<h1>hello</h1>");
+
+        expect(response.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    });
+
+    it("json() sets charset in content-type", async () => {
+        const response = await json({ ok: true });
+
+        expect(response.headers.get("content-type")).toBe("application/json");
     });
 
     it("does not trust Host by default when building event URLs", async () => {
@@ -67,6 +85,103 @@ describe("server hardening", () => {
             protocol: "http:",
             client: "127.0.0.1"
         });
+    });
+
+    it("reads client address from x-real-ip when trusted proxy sends no x-forwarded-for", async () => {
+        const server = new WebServer({
+            type: "http",
+            options: {},
+            security: {
+                trustedProxies: [/127\.0\.0\.1/, /::1/, /::ffff:127\.0\.0\.1/]
+            }
+        });
+        server.GET("/", (event) => new Response(event.getClientAddress()));
+
+        const port = await startServer(server);
+        const body = await new Promise<string>((resolve, reject) => {
+            const req = httpRequest({
+                host: "127.0.0.1",
+                port,
+                path: "/",
+                method: "GET",
+                headers: {
+                    "X-Real-IP": "203.0.113.42"
+                }
+            }, async (res) => {
+                const chunks: Buffer[] = [];
+                for await (const chunk of res) {
+                    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+                }
+                resolve(Buffer.concat(chunks).toString("utf8"));
+            });
+            req.on("error", reject);
+            req.end();
+        });
+
+        expect(body).toBe("203.0.113.42");
+    });
+
+    it("ignores x-real-ip when the proxy is not trusted", async () => {
+        const server = new WebServer();
+        server.GET("/", (event) => new Response(event.getClientAddress()));
+
+        const port = await startServer(server);
+        const body = await new Promise<string>((resolve, reject) => {
+            const req = httpRequest({
+                host: "127.0.0.1",
+                port,
+                path: "/",
+                method: "GET",
+                headers: {
+                    "X-Real-IP": "203.0.113.42"
+                }
+            }, async (res) => {
+                const chunks: Buffer[] = [];
+                for await (const chunk of res) {
+                    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+                }
+                resolve(Buffer.concat(chunks).toString("utf8"));
+            });
+            req.on("error", reject);
+            req.end();
+        });
+
+        expect(body).toBe("127.0.0.1");
+    });
+
+    it("prefers x-forwarded-for over x-real-ip when both are present", async () => {
+        const server = new WebServer({
+            type: "http",
+            options: {},
+            security: {
+                trustedProxies: [/127\.0\.0\.1/, /::1/, /::ffff:127\.0\.0\.1/]
+            }
+        });
+        server.GET("/", (event) => new Response(event.getClientAddress()));
+
+        const port = await startServer(server);
+        const body = await new Promise<string>((resolve, reject) => {
+            const req = httpRequest({
+                host: "127.0.0.1",
+                port,
+                path: "/",
+                method: "GET",
+                headers: {
+                    "X-Forwarded-For": "10.0.0.1",
+                    "X-Real-IP": "203.0.113.42"
+                }
+            }, async (res) => {
+                const chunks: Buffer[] = [];
+                for await (const chunk of res) {
+                    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+                }
+                resolve(Buffer.concat(chunks).toString("utf8"));
+            });
+            req.on("error", reject);
+            req.end();
+        });
+
+        expect(body).toBe("10.0.0.1");
     });
 
     it("trusts forwarded client, protocol, and host from trusted proxies", async () => {
@@ -822,6 +937,61 @@ describe("sse helper", () => {
         expect(body).toContain(": multi line comment");
         expect(body).toContain("data: test");
         expect(body).not.toContain("\n:", "\n in comment");
+    });
+});
+
+describe("graceful shutdown", () => {
+    it("shutdown() resolves after in-flight requests complete", async () => {
+        const server = new WebServer();
+        server.GET("/slow", async () => {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            return new Response("done");
+        });
+
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+        const address = server.address() as import("net").AddressInfo;
+
+        const fetchPromise = fetch(`http://127.0.0.1:${address.port}/slow`);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        await server.shutdown(1000);
+        const response = await fetchPromise;
+        expect(response.status).toBe(200);
+    });
+
+    it("shutdown() force-closes connections after timeout", async () => {
+        const server = new WebServer();
+        server.GET("/hang", () => new Promise<Response>(() => {}));
+
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+        const address = server.address() as import("net").AddressInfo;
+
+        fetch(`http://127.0.0.1:${address.port}/hang`).catch(() => {});
+        await new Promise((resolve) => setTimeout(resolve, 20));
+
+        await expect(server.shutdown(100)).resolves.toBeUndefined();
+    });
+});
+
+describe("response helpers", () => {
+    it("error() includes content-length", () => {
+        let caught: Response | undefined;
+        try {
+            error(400, "bad input");
+        } catch (e) {
+            caught = e as Response;
+        }
+        expect(caught?.headers.get("content-length")).toBeTruthy();
+    });
+
+    it("server does not expose a Server header by default", async () => {
+        const server = new WebServer();
+        server.GET("/", () => new Response("ok"));
+
+        const port = await startServer(server);
+        const response = await fetch(`http://127.0.0.1:${port}/`);
+
+        expect(response.headers.get("server")).toBeNull();
     });
 });
 

@@ -16,12 +16,16 @@ const MIME_TYPES: Record<string, string> = {
     ".js": "text/javascript; charset=utf-8",
     ".json": "application/json; charset=utf-8",
     ".mjs": "text/javascript; charset=utf-8",
+    ".otf": "font/otf",
     ".pdf": "application/pdf",
     ".png": "image/png",
     ".svg": "image/svg+xml; charset=utf-8",
+    ".ttf": "font/ttf",
     ".txt": "text/plain; charset=utf-8",
     ".wasm": "application/wasm",
     ".webp": "image/webp",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
     ".xml": "application/xml; charset=utf-8"
 };
 
@@ -29,14 +33,113 @@ export type StaticOptions = {
     index?: string;
     cacheControl?: string;
     dotFiles?: "allow" | "deny" | "ignore";
+    spa?: boolean;
     headers?: HeadersInit | ((filePath: string, stats: Awaited<ReturnType<typeof stat>>) => HeadersInit);
 };
 
 const DEFAULT_STATIC_OPTIONS: Required<Omit<StaticOptions, "headers">> = {
     index: "index.html",
     cacheControl: "public, max-age=0",
-    dotFiles: "ignore"
+    dotFiles: "ignore",
+    spa: false
 };
+
+function generateETag(fileStats: Awaited<ReturnType<typeof stat>>): string {
+    return `"${fileStats.size.toString(16)}-${fileStats.mtime.getTime().toString(16)}"`;
+}
+
+function isNotModified(request: Request, etag: string, mtime: Date): boolean {
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (ifNoneMatch) {
+        return ifNoneMatch === etag || ifNoneMatch === "*";
+    }
+    const ifModifiedSince = request.headers.get("if-modified-since");
+    if (ifModifiedSince) {
+        return Math.floor(mtime.getTime() / 1000) <= Math.floor(new Date(ifModifiedSince).getTime() / 1000);
+    }
+    return false;
+}
+
+function parseRange(rangeHeader: string, size: number): { start: number; end: number } | null {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader);
+    if (!match) return null;
+
+    let start: number;
+    let end: number;
+
+    if (!match[1] && !match[2]) return null;
+
+    if (!match[1]) {
+        const suffix = parseInt(match[2], 10);
+        if (isNaN(suffix) || suffix === 0) return null;
+        start = Math.max(0, size - suffix);
+        end = size - 1;
+    } else if (!match[2]) {
+        start = parseInt(match[1], 10);
+        end = size - 1;
+    } else {
+        start = parseInt(match[1], 10);
+        end = parseInt(match[2], 10);
+    }
+
+    if (isNaN(start) || isNaN(end) || start < 0 || start > end || end >= size) return null;
+    return { start, end };
+}
+
+async function buildFileResponse(
+    filePath: string,
+    request: Request,
+    options: StaticOptions,
+    resolvedOptions: Required<Omit<StaticOptions, "headers">>
+): Promise<Response> {
+    const fileStats = await stat(filePath);
+    const etag = generateETag(fileStats);
+    const headers = new Headers({
+        "content-type": getMimeType(filePath),
+        "cache-control": resolvedOptions.cacheControl,
+        "last-modified": fileStats.mtime.toUTCString(),
+        "etag": etag,
+        "accept-ranges": "bytes",
+        "x-content-type-options": "nosniff"
+    });
+
+    if (options.headers) {
+        const extraHeaders = typeof options.headers === "function"
+            ? options.headers(filePath, fileStats)
+            : options.headers;
+        new Headers(extraHeaders).forEach((value, key) => {
+            headers.set(key, value);
+        });
+    }
+
+    if (isNotModified(request, etag, fileStats.mtime)) {
+        return new Response(null, { status: 304, headers });
+    }
+
+    const rangeHeader = request.headers.get("range");
+    if (rangeHeader) {
+        const range = parseRange(rangeHeader, fileStats.size);
+        if (!range) {
+            return new Response(null, {
+                status: 416,
+                headers: { "content-range": `bytes */${fileStats.size}` }
+            });
+        }
+        const rangeHeaders = new Headers(headers);
+        rangeHeaders.set("content-length", String(range.end - range.start + 1));
+        rangeHeaders.set("content-range", `bytes ${range.start}-${range.end}/${fileStats.size}`);
+        return new Response(
+            Readable.toWeb(createReadStream(filePath, { start: range.start, end: range.end })) as ReadableStream<Uint8Array>,
+            { status: 206, headers: rangeHeaders }
+        );
+    }
+
+    headers.set("content-length", String(fileStats.size));
+    return new Response(Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>, {
+        status: 200,
+        headers
+    });
+}
 
 export async function serveStatic(root: string, event: RequestEvent, options: StaticOptions = {}): Promise<Response> {
     const requestPath = getStaticRequestPath(event);
@@ -60,31 +163,16 @@ export async function serveStatic(root: string, event: RequestEvent, options: St
 
     const filePath = await resolveStaticFile(candidatePath, rootPath, resolvedOptions.index);
     if (filePath instanceof Response) {
+        if (resolvedOptions.spa && filePath.status === 404 && !extname(targetPath)) {
+            const spaPath = await resolveStaticFile(rootPath, rootPath, resolvedOptions.index);
+            if (!(spaPath instanceof Response)) {
+                return buildFileResponse(spaPath, event.request, options, resolvedOptions);
+            }
+        }
         return filePath;
     }
 
-    const fileStats = await stat(filePath);
-    const headers = new Headers({
-        "content-length": String(fileStats.size),
-        "content-type": getMimeType(filePath),
-        "cache-control": resolvedOptions.cacheControl,
-        "last-modified": fileStats.mtime.toUTCString(),
-        "x-content-type-options": "nosniff"
-    });
-
-    if (options.headers) {
-        const extraHeaders = typeof options.headers === "function"
-            ? options.headers(filePath, fileStats)
-            : options.headers;
-        new Headers(extraHeaders).forEach((value, key) => {
-            headers.set(key, value);
-        });
-    }
-
-    return new Response(Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>, {
-        status: 200,
-        headers
-    });
+    return buildFileResponse(filePath, event.request, options, resolvedOptions);
 }
 
 async function resolveStaticRoot(root: string): Promise<string> {

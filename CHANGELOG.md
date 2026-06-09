@@ -1,3 +1,15 @@
+# [1.8.0](https://github.com/SourceRegistry/node-webserver/compare/v1.7.6...v1.8.0) (2026-06-09)
+
+
+### Bug Fixes
+
+* trigger release pipeline ([c05581d](https://github.com/SourceRegistry/node-webserver/commit/c05581dc22a91b149bd32f474b3b55009c1a6ca0))
+
+
+### Features
+
+* static improvements, compression middleware, graceful shutdown ([945a9bb](https://github.com/SourceRegistry/node-webserver/commit/945a9bb5844bfb797cfcce016605859daf7391c2))
+
 ## [1.7.6](https://github.com/SourceRegistry/node-webserver/compare/v1.7.5...v1.7.6) (2026-05-17)
 
 

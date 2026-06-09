@@ -1,7 +1,7 @@
 {
   "name": "@sourceregistry/node-webserver",
   "version": "1.7.6",
-  "description": "TypeScript web server for Node.js with web-standard Request and Response APIs",
+  "description": "TypeScript web server for Node.js with web-standard Request and Response APIs.",
   "type": "module",
   "main": "./dist/index.cjs.js",
   "module": "./dist/index.es.js",

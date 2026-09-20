@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/SourceRegistry/node-webserver/compare/v1.9.0...v1.10.0) (2026-09-20)
+
+
+### Features
+
+* added enhancements Auth and Form to be in package ([1f80f0b](https://github.com/SourceRegistry/node-webserver/commit/1f80f0b3840ba65a780b7321c3bcc545ec33f482))
+
 # [1.9.0](https://github.com/SourceRegistry/node-webserver/compare/v1.8.0...v1.9.0) (2026-09-20)
 
 

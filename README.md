@@ -527,6 +527,60 @@ router.WS("/ws/chat", enhance(
 
 Plain HTTP enhancers (`TExtra = {}`) can still be passed to a WS `enhance()` call — they just won't have access to `websocket`.
 
+### Built-in enhancers: `Auth` and `Form`
+
+`Auth` and `Form` are ready-made enhancers/helpers built on the same throw-a-`Response` convention as `error()`/`redirect()`. Both route their failures through a single `fail(status, body)` primitive, so every enhance-layer error looks the same on the wire and can be customized the same way.
+
+```ts
+import { enhance, Auth } from "@sourceregistry/node-webserver";
+
+app.GET("/admin", enhance(
+  (event) => new Response(`token: ${event.context.token}`),
+  Auth.Bearer
+));
+```
+
+`Form` parses `FormData` bodies with typed accessors (`form.string$`, `form.number$`, `form.json$`, `form.validate`, ...) that throw the same way when a field is missing or malformed. `Form.enhance()` returns an `EventEnhancer` — compose it with `enhance()` like any other enhancer, don't call it standalone:
+
+```ts
+import { enhance, Form } from "@sourceregistry/node-webserver";
+
+router.action("/users", enhance(
+  (event) => {
+    const name = event.context.form.string$("name"); // throws a 400 Response if missing/invalid
+    return { name };
+  },
+  Form.enhance()
+));
+```
+
+**Customizing the default error output.** Every `Auth`/`Form` failure ends up calling `fail(status, body)`. You can override it two ways:
+
+- Per call, with `onError` — return the `App.Error` you want used instead; the framework still does the throwing:
+  ```ts
+  Auth.Bearer(event, {
+    onError: (status, body) => ({ error: body.message })
+  });
+
+  Form.enhance({
+    onError: (status, body) => ({ error: body.message, targets: body.targets })
+  });
+  ```
+- App-wide, once at startup, with `setEnhanceErrorFactory` — full control over the thrown `Response` (headers, non-JSON bodies, logging, ...):
+  ```ts
+  import { setEnhanceErrorFactory } from "@sourceregistry/node-webserver";
+
+  setEnhanceErrorFactory((status, body) => {
+    throw new Response(JSON.stringify({ error: body }), {
+      status,
+      headers: { "content-type": "application/json" }
+    });
+  });
+  ```
+  Any call that doesn't pass its own `onError` uses this app-wide default.
+
+> **Note:** this `fail()` is unrelated to `Action.fail()` used inside `router.action()` results — `Action.fail()` *returns* a `{ type: "failure" }` Response for a form action result, while `fail()` here *throws*, following the same control flow as `error()`/`redirect()`.
+
 ## Router Lifecycle Hooks
 
 Use `pre()` for logic that should run before route resolution, and `post()` for logic that should run after a response has been produced.

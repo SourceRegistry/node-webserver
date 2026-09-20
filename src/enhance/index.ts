@@ -1,7 +1,16 @@
-import type {RequestEvent} from "./types";
-import type {MaybePromise} from "./types/MaybePromise";
-import {isResponse} from "./utils";
+import type {RequestEvent} from "../types";
+import type {MaybePromise} from "../types/MaybePromise";
+import {isResponse} from "../utils";
 import type {WebSocket} from "ws";
+import {error} from "../index";
+
+export {Auth} from './auth';
+export type {AuthOptions} from './auth';
+export {Form} from './form.enhance';
+export type {
+    FormContext, FormEnhanceOptions, Validator, InferValidator,
+    ValidationIssue, ValidationResult, ValidationSuccess, ValidationFailure, ValidationPath
+} from './form.enhance';
 
 type AnyFn = (...args: any[]) => any;
 
@@ -20,8 +29,15 @@ export type EventEnhancer<
     Context extends Record<string, any> = Record<string, any>,
     TExtra extends object = {}
 > = (
-    event: RequestEvent<Params, RouteId, Locals> & TExtra
+    event: EnhancedEvent<Params, RouteId, Locals, TExtra>
 ) => MaybePromise<Context | void | undefined | Response>;
+
+export type EnhancedEvent<
+    Params extends Partial<Record<string, string>> = Partial<Record<string, string>>,
+    RouteId extends string | null = string | null,
+    Locals extends App.Locals = App.Locals,
+    TExtra extends object = {}
+> = RequestEvent<Params, RouteId, Locals> & TExtra
 
 export type EnhancedRequestEvent<
     Params extends Partial<Record<string, string>> = Partial<Record<string, string>>,
@@ -66,16 +82,22 @@ export const enhance = <
         const context = {} as Context;
 
         for (const enhancer of enhancers) {
-            const result = await enhancer(event);
-            if (isResponse(result)) {
-                return result;
-            }
-
-            if (result && typeof result === "object") {
-                Object.assign(context, result);
-            }
+            const result = await enhancer(event)
+            if (isResponse(result)) return result;
+            if (result && typeof result === "object") Object.assign(context, result);
         }
 
         return handler(Object.assign(event, {context}) as any);
     };
 };
+
+export type EnhanceErrorHandler = (ctx: {
+    message: string,
+    status: number,
+    data?: Record<string, unknown>,
+    request?: RequestEvent
+}) => Response | never;
+
+export const DefaultErrorHandler: EnhanceErrorHandler = ({status, message, data}): never => {
+    throw error(status, {message, ...data})
+}

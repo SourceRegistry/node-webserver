@@ -529,18 +529,27 @@ Plain HTTP enhancers (`TExtra = {}`) can still be passed to a WS `enhance()` cal
 
 ### Built-in enhancers: `Auth` and `Form`
 
-`Auth` and `Form` are ready-made enhancers/helpers built on the same throw-a-`Response` convention as `error()`/`redirect()`. Both route their failures through a single `fail(status, body)` primitive, so every enhance-layer error looks the same on the wire and can be customized the same way.
+`Auth` and `Form` are ready-made enhancer *factories* built on the same throw-a-`Response` convention as `error()`/`redirect()`. Each one is called with its own options (`Auth.Bearer()`, `Auth.Basic(lookup)`, `Form.enhance()`, ...) and returns an `EventEnhancer` — compose that with `enhance()` like any other enhancer:
 
 ```ts
 import { enhance, Auth } from "@sourceregistry/node-webserver";
 
 app.GET("/admin", enhance(
   (event) => new Response(`token: ${event.context.token}`),
-  Auth.Bearer
+  Auth.Bearer()
 ));
 ```
 
-`Form` parses `FormData` bodies with typed accessors (`form.string$`, `form.number$`, `form.json$`, `form.validate`, ...) that throw the same way when a field is missing or malformed. `Form.enhance()` returns an `EventEnhancer` — compose it with `enhance()` like any other enhancer, don't call it standalone:
+`Auth.Basic` decodes an RFC 7617 `Authorization: Basic ...` header and hands the credentials to a `lookup` function you provide; return a falsy value to reject the request, otherwise whatever you return ends up on `event.context.user`:
+
+```ts
+app.GET("/admin", enhance(
+  (event) => new Response(`hello ${event.context.user.name}`),
+  Auth.Basic(({ username, password }) => findUser(username, password), { realm: "Admin Area" })
+));
+```
+
+`Form` parses `FormData` bodies with typed accessors (`form.string$`, `form.number$`, `form.json$`, `form.validate`, ...) that throw the same way when a field is missing or malformed:
 
 ```ts
 import { enhance, Form } from "@sourceregistry/node-webserver";
@@ -554,32 +563,24 @@ router.action("/users", enhance(
 ));
 ```
 
-**Customizing the default error output.** Every `Auth`/`Form` failure ends up calling `fail(status, body)`. You can override it two ways:
+**Customizing the default error output.** Every `Auth`/`Form` failure calls an `onError` handler with `{ status, message, data?, request? }` and throws whatever it returns. Pass your own to override the default (`DefaultErrorHandler`, which throws `error(status, { message, ...data })`):
 
-- Per call, with `onError` — return the `App.Error` you want used instead; the framework still does the throwing:
-  ```ts
-  Auth.Bearer(event, {
-    onError: (status, body) => ({ error: body.message })
-  });
+```ts
+Auth.Bearer({
+  onError: ({ status, message }) => new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { "content-type": "application/json" }
+  })
+});
 
-  Form.enhance({
-    onError: (status, body) => ({ error: body.message, targets: body.targets })
-  });
-  ```
-- App-wide, once at startup, with `setEnhanceErrorFactory` — full control over the thrown `Response` (headers, non-JSON bodies, logging, ...):
-  ```ts
-  import { setEnhanceErrorFactory } from "@sourceregistry/node-webserver";
+Form.enhance({
+  onError: ({ status, message, data }) => new Response(JSON.stringify({ error: message, ...data }), { status })
+});
+```
 
-  setEnhanceErrorFactory((status, body) => {
-    throw new Response(JSON.stringify({ error: body }), {
-      status,
-      headers: { "content-type": "application/json" }
-    });
-  });
-  ```
-  Any call that doesn't pass its own `onError` uses this app-wide default.
+`Auth.Basic` also adds a `WWW-Authenticate: Basic realm="..."` header on its default 401 (required for browsers to prompt for credentials) — a custom `onError` takes over that responsibility too.
 
-> **Note:** this `fail()` is unrelated to `Action.fail()` used inside `router.action()` results — `Action.fail()` *returns* a `{ type: "failure" }` Response for a form action result, while `fail()` here *throws*, following the same control flow as `error()`/`redirect()`.
+> **Note:** this is unrelated to `Action.fail()` used inside `router.action()` results — `Action.fail()` *returns* a `{ type: "failure" }` Response for a form action result, while `onError` here is *thrown*, following the same control flow as `error()`/`redirect()`.
 
 ## Router Lifecycle Hooks
 

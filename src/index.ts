@@ -28,11 +28,12 @@ export function redirect(status: 300 | 301 | 302 | 303 | 304 | 305 | 306 | 307 |
     })
 }
 
-export function error(status: number, body: App.Error | string): never {
+export function error(status: number, body: App.Error | string, headers?: HeadersInit): never {
     const content = JSON.stringify(typeof body === "string" ? {message: body} : body);
     throw new Response(content, {
         status,
         headers: {
+            ...headers,
             'content-type': 'application/json',
             'content-length': Buffer.byteLength(content).toString()
         }

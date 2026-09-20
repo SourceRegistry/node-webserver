@@ -95,9 +95,10 @@ export type EnhanceErrorHandler = (ctx: {
     message: string,
     status: number,
     data?: Record<string, unknown>,
+    headers?: HeadersInit
     request?: RequestEvent
 }) => Response | never;
 
-export const DefaultErrorHandler: EnhanceErrorHandler = ({status, message, data}): never => {
-    throw error(status, {message, ...data})
+export const DefaultErrorHandler: EnhanceErrorHandler = ({status, message, data, headers}): never => {
+    throw error(status, {message, ...data}, headers)
 }

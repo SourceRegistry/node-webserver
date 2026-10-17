@@ -1,4 +1,4 @@
-import { createReadStream } from "node:fs";
+import { createReadStream, type Stats } from "node:fs";
 import { lstat, realpath, stat } from "node:fs/promises";
 import { extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
@@ -34,7 +34,7 @@ export type StaticOptions = {
     cacheControl?: string;
     dotFiles?: "allow" | "deny" | "ignore";
     spa?: boolean;
-    headers?: HeadersInit | ((filePath: string, stats: Awaited<ReturnType<typeof stat>>) => HeadersInit);
+    headers?: HeadersInit | ((filePath: string, stats: Stats) => HeadersInit);
 };
 
 const DEFAULT_STATIC_OPTIONS: Required<Omit<StaticOptions, "headers">> = {
@@ -44,7 +44,7 @@ const DEFAULT_STATIC_OPTIONS: Required<Omit<StaticOptions, "headers">> = {
     spa: false
 };
 
-function generateETag(fileStats: Awaited<ReturnType<typeof stat>>): string {
+function generateETag(fileStats: Stats): string {
     return `"${fileStats.size.toString(16)}-${fileStats.mtime.getTime().toString(16)}"`;
 }
 

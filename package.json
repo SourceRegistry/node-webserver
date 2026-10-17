@@ -3,14 +3,14 @@
   "version": "1.10.0",
   "description": "TypeScript web server for Node.js with web-standard Request and Response APIs.",
   "type": "module",
-  "main": "./dist/index.cjs.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.es.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.es.js",
-      "require": "./dist/index.cjs.js"
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
@@ -61,27 +61,27 @@
     "access": "public"
   },
   "dependencies": {
-    "cookie": "^1.0.2",
-    "ws": "^8.18.3"
+    "cookie": "^2.0.1",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@sourceregistry/semantic-release-jsr": "^1.1.1",
-    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/npm": "^13.1.3",
-    "@semantic-release/release-notes-generator": "^14.1.0",
-    "@types/node": "^25.5.2",
-    "@types/ws": "^8.18.1",
-    "@vitest/coverage-v8": "^4.1.2",
-    "@vitest/ui": "^4.0.16",
-    "jsr": "^0.13.0",
-    "tsx": "^4.21.0",
-    "typedoc": "^0.28.18",
-    "typescript": "^6.0.2",
-    "vite": "^8.0.5",
-    "vite-plugin-dts": "^4.5.4",
-    "vitest": "^4.1.2"
+    "@semantic-release/git": "^11.0.1",
+    "@semantic-release/npm": "^13.2.0",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "@sourceregistry/semantic-release-jsr": "^1.1.1",
+    "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
+    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/ui": "^5.0.5",
+    "jsr": "^0.14.3",
+    "tsx": "^4.23.15",
+    "typedoc": "^0.28.20",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4",
+    "vite-plugin-dts": "^5.1.2",
+    "vitest": "^5.0.5"
   },
   "release": {
     "branches": [

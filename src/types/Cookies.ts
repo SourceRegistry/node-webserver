@@ -1,4 +1,4 @@
-import {type ParseOptions, parse, serialize, type SerializeOptions} from "cookie";
+import {type ParseOptions, parseCookie, stringifySetCookie, type SerializeOptions} from "cookie";
 
 export class Cookies {
     private readonly setCookieHeader: (serialized: string) => void;
@@ -10,17 +10,17 @@ export class Cookies {
     }
 
     get(name: string, opts?: ParseOptions): string | undefined {
-        return parse(this.raw, opts)[name];
+        return parseCookie(this.raw, opts)[name];
     }
 
     getAll(opts?: ParseOptions): { name: string; value: string }[] {
-        return Object.entries(parse(this.raw, opts))
+        return Object.entries(parseCookie(this.raw, opts))
             .filter(([, v]) => v !== undefined)
             .map(([name, value]) => ({name, value})) as { name: string, value: string }[];
     }
 
     set(name: string, value: string, opts: SerializeOptions & { path: string }): void {
-        this.setCookieHeader(serialize(name, value, opts));
+        this.setCookieHeader(stringifySetCookie({name, value, ...opts}));
     }
 
     delete(name: string, opts: SerializeOptions & { path: string }): void {
